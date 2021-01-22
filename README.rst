@@ -6,6 +6,16 @@ ngtcp2
 ngtcp2 project is an effort to implement QUIC protocol which is now
 being discussed in IETF QUICWG for its standardization.
 
+More about the project
+------------------
+
+This is a Github repository for my Part II dissertation.
+This is an attempt to offload packet reodering logic of QUIC to hardware.
+However, according to https://www.youtube.com/watch?v=31J8PoLW9iM, packet numbers of QUIC are encrypted.
+Hence, this QUIC implementation diverges from ngtcp2 QUIC implementation by turning off packet encryption.
+
+Here draft-32 branch of ngtcp2 is used (https://github.com/simonasmulevicius/ngtcp2/tree/draft-32).
+
 Branching strategy
 ------------------
 
