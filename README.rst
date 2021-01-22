@@ -6,6 +6,18 @@ ngtcp2
 ngtcp2 project is an effort to implement QUIC protocol which is now
 being discussed in IETF QUICWG for its standardization.
 
+
+More about the project
+------------------
+
+This is a Github repository for my Part II dissertation.
+This is an attempt to offload packet reodering logic of QUIC to hardware.
+However, according to https://www.youtube.com/watch?v=31J8PoLW9iM, packet numbers of QUIC are encrypted.
+Hence, this QUIC implementation diverges from ngtcp2 QUIC implementation by turning off packet encryption.
+
+
+
+
 Branching strategy
 ------------------
 
@@ -19,6 +31,7 @@ only.
 
 For older draft implementations:
 
+- `draft-32 (used by this project) <https://github.com/ngtcp2/ngtcp2/tree/draft-32>`_
 - `draft-31 <https://github.com/ngtcp2/ngtcp2/tree/draft-31>`_
 - `draft-30 <https://github.com/ngtcp2/ngtcp2/tree/draft-30>`_
 - `draft-29 <https://github.com/ngtcp2/ngtcp2/tree/draft-29>`_
@@ -64,14 +77,20 @@ The client and server under examples directory require patched OpenSSL
 as crypto backend:
 
 * Patched OpenSSL
-  (https://github.com/tatsuhiro-t/openssl/tree/OpenSSL_1_1_1g-quic-draft-32)
+  (https://github.com/tatsuhiro-t/openssl/tree/OpenSSL_1_1_1g-quic-draft-33)
+
+For crypto helper library:
+
+* Patched OpenSSL listed above
+* libgnutls28-dev >= 3.7.0
+* BoringSSL (commit 78f15a6aa9f11ab7cff736f920c4858cc38264fb)
 
 Build from git
 --------------
 
 .. code-block:: text
 
-   $ git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-32 https://github.com/tatsuhiro-t/openssl
+   $ git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-33 https://github.com/tatsuhiro-t/openssl
    $ cd openssl
    $ # For Linux
    $ ./config enable-tls1_3 --prefix=$PWD/build
@@ -175,6 +194,14 @@ available crypto helper libraries are:
 
 * libngtcp2_crypto_openssl: Use OpenSSL as TLS backend
 * libngtcp2_crypto_gnutls: Use GnuTLS as TLS backend
+* libngtcp2_crypto_boringssl: Use BoringSSL as TLS backend
+
+Because BoringSSL is an unversioned product, we only tested its
+particular revision.  See Requirements section above.
+
+Note that GnuTLS has some issues regarding early data. GnuTLS client
+cannot send early data and GnuTLS server will crash when it receives
+0RTT packet.
 
 Configuring Wireshark for QUIC
 ------------------------------
