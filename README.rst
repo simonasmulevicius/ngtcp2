@@ -211,6 +211,16 @@ Configuring Wireshark for QUIC
 `Wireshark <https://www.wireshark.org/download.html>`_ can be configured to
 analyze QUIC traffic using the following steps:
 
+0. To install the latest Wireshark version on Ubuntu use the following steps:
+
+   .. code-block:: text
+
+      $ sudo add-apt-repository ppa:wireshark-dev/stable
+      $ sudo apt update
+      $ sudo apt -y install wireshark
+
+   (Taken from https://computingforgeeks.com/how-to-install-wireshark-on-ubuntu-desktop/)
+
 1. Set *SSLKEYLOGFILE* environment variable:
 
    .. code-block:: text
