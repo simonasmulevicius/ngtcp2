@@ -144,6 +144,25 @@ The notable options are:
 
 - ``-V``, ``--validate-addr``: Enforce stateless address validation.
 
+
+Typical example of running Client/Server
+~~~~~~
+
+   1. Create keys:
+.. code-block:: text
+   $ cd ./examples
+   $ openssl req -nodes -new -x509 -keyout server.key -out server.cert
+   $ cd ..
+
+   2.1 Run Server
+.. code-block:: text
+   $ ./examples/server 127.0.0.1 7777  ./examples/server.key ./examples/server.cert
+
+
+   2.2 Run Client
+.. code-block:: text
+   $ ./examples/client 127.0.0.1 7777  
+
 H09client/H09server
 -------------------
 
