@@ -53,6 +53,10 @@ struct Request {
   std::string path;
 };
 
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// 
 struct Config {
   ngtcp2_cid dcid;
   ngtcp2_cid scid;
@@ -78,6 +82,8 @@ struct Config {
   uint32_t version;
   // quiet suppresses the output normally shown except for the error
   // messages.
+  // noencryption is true if developers want to use plain-text encryption
+  bool noencryption;
   bool quiet;
   // timeout is an idle timeout for QUIC connection.
   ngtcp2_duration timeout;

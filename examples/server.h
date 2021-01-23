@@ -48,6 +48,10 @@
 
 using namespace ngtcp2;
 
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// 
 struct Config {
   Address preferred_ipv4_addr;
   Address preferred_ipv6_addr;
@@ -79,10 +83,12 @@ struct Config {
   bool show_secret;
   // validate_addr is true if server requires address validation.
   bool validate_addr;
+  // noencryption is true if developers want to use plain-text encryption
+  bool noencryption;
   // early_response is true if server starts sending response when it
   // receives HTTP header fields without waiting for request body.  If
   // HTTP response data is written before receiving request body,
-  // STOP_SENDING is sent.
+  // STOP_SENDING is sent.  
   bool early_response;
   // verify_client is true if server verifies client with X.509
   // certificate based authentication.
