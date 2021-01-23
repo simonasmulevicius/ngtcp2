@@ -984,10 +984,6 @@ int ngtcp2_conn_client_new(ngtcp2_conn **pconn, const ngtcp2_cid *dcid,
     return rv;
   }
 
-  ngtcp2_qlog_parameters_set_transport_params(
-      &(*pconn)->qlog, &(*pconn)->local.settings.transport_params,
-      (*pconn)->server, NGTCP2_QLOG_SIDE_LOCAL);
-
   return 0;
 }
 
@@ -1349,7 +1345,7 @@ static int conn_ppe_write_frame_hd_log(ngtcp2_conn *conn, ngtcp2_ppe *ppe,
   if (hd_logged && !*hd_logged) {
     *hd_logged = 1;
     ngtcp2_log_tx_pkt_hd(&conn->log, hd);
-    ngtcp2_qlog_pkt_sent_start(&conn->qlog, hd);
+    ngtcp2_qlog_pkt_sent_start(&conn->qlog);
   }
 
   ngtcp2_log_tx_fr(&conn->log, hd, fr);
@@ -3592,7 +3588,7 @@ ngtcp2_ssize ngtcp2_conn_write_single_frame_pkt(
   }
 
   ngtcp2_log_tx_pkt_hd(&conn->log, &hd);
-  ngtcp2_qlog_pkt_sent_start(&conn->qlog, &hd);
+  ngtcp2_qlog_pkt_sent_start(&conn->qlog);
 
   rv = conn_ppe_write_frame(conn, &ppe, &hd, fr);
   if (rv != 0) {
@@ -4389,6 +4385,8 @@ static int conn_on_retry(ngtcp2_conn *conn, const ngtcp2_pkt_hd *hd,
   if (ngtcp2_cid_eq(&conn->dcid.current.cid, &hd->scid)) {
     return 0;
   }
+
+  ngtcp2_qlog_retry_pkt_received(&conn->qlog, hd);
 
   /* DCID must be updated before invoking callback because client
      generates new initial keys there. */
@@ -5489,7 +5487,7 @@ conn_recv_handshake_pkt(ngtcp2_conn *conn, const ngtcp2_path *path,
     }
   }
 
-  ngtcp2_qlog_pkt_received_start(&conn->qlog, &hd);
+  ngtcp2_qlog_pkt_received_start(&conn->qlog);
 
   for (; payloadlen;) {
     nread = ngtcp2_pkt_decode_frame(fr, payload, payloadlen);
@@ -7463,7 +7461,7 @@ conn_recv_delayed_handshake_pkt(ngtcp2_conn *conn, const ngtcp2_pkt_info *pi,
     return NGTCP2_ERR_PROTO;
   }
 
-  ngtcp2_qlog_pkt_received_start(&conn->qlog, hd);
+  ngtcp2_qlog_pkt_received_start(&conn->qlog);
 
   for (; payloadlen;) {
     nread = ngtcp2_pkt_decode_frame(fr, payload, payloadlen);
@@ -7854,7 +7852,7 @@ static ngtcp2_ssize conn_recv_pkt(ngtcp2_conn *conn, const ngtcp2_path *path,
     conn->flags |= NGTCP2_CONN_FLAG_RECV_PROTECTED_PKT;
   }
 
-  ngtcp2_qlog_pkt_received_start(&conn->qlog, &hd);
+  ngtcp2_qlog_pkt_received_start(&conn->qlog);
 
   for (; payloadlen;) {
     nread = ngtcp2_pkt_decode_frame(fr, payload, payloadlen);
