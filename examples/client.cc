@@ -2618,6 +2618,13 @@ Options:
 } // namespace
 
 int main(int argc, char **argv) {
+  printf("------------------------------------------------------------------\n");
+  printf(" This is experimental un-encrypted ngtcp2 version                 \n");
+  printf("\n");
+  printf(" Co-author: Simonas Mulevicius, the University of Cambridge, 2021 \n");
+  printf("------------------------------------------------------------------\n");
+  printf("\n");
+    
   config_set_default(config);
   char *data_path = nullptr;
   const char *private_key_file = nullptr;
