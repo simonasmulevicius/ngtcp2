@@ -66,7 +66,7 @@ The following packages are required to configure the build system:
 
 libngtcp2 uses cunit for its unit test frame work:
 
-* cunit >= 2.1
+* cunit >= 2.1 (can use: ``sudo apt-get install libcunit1 libcunit1-doc libcunit1-dev``)
 
 To build sources under the examples directory, libev and nghttp3 are
 required:
