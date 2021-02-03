@@ -66,12 +66,12 @@ The following packages are required to configure the build system:
 
 libngtcp2 uses cunit for its unit test frame work:
 
-* cunit >= 2.1
+* cunit >= 2.1 (can use: ``sudo apt-get install libcunit1 libcunit1-doc libcunit1-dev``)
 
 To build sources under the examples directory, libev and nghttp3 are
 required:
 
-* libev
+* libev (can use: ``sudo apt-get install libev-dev``)
 * nghttp3 (https://github.com/ngtcp2/nghttp3) for HTTP/3
 
 The client and server under examples directory require patched OpenSSL
@@ -91,7 +91,7 @@ Build from git
 
 .. code-block:: text
 
-   $ git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-33 https://github.com/tatsuhiro-t/openssl
+   $ git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-32 https://github.com/tatsuhiro-t/openssl
    $ cd openssl
    $ # For Linux
    $ ./config enable-tls1_3 --prefix=$PWD/build
