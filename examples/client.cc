@@ -696,12 +696,13 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
     printf(" NGTCP2_HP_MASKLEN: %d \n", NGTCP2_HP_MASKLEN);
 
     //TODO write to dest NGTCP2_HP_MASKLEN number of 0s
-    for (int i=0; i<NGTCP2_HP_MASKLEN; i++){
-
-      printf(" dest[%d]: %d \n", i, dest[i]);
-      //dest[i] = 0;
-      //printf("dest[%d]: %d \n", i, dest[i]);
-    }
+    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
+    
+//    for (int i=0; i<NGTCP2_HP_MASKLEN; i++){
+//      printf(" dest[%d]: %d \n", i, dest[i]);
+//      //dest[i] = 0;
+//      //printf("dest[%d]: %d \n", i, dest[i]);
+//    }
 
     printf("\n");
     printf(" --------------------------------\n");
