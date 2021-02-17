@@ -6,6 +6,7 @@ ngtcp2
 ngtcp2 project is an effort to implement QUIC protocol which is now
 being discussed in IETF QUICWG for its standardization.
 
+
 More about the project
 ------------------
 
@@ -63,12 +64,12 @@ The following packages are required to configure the build system:
 
 libngtcp2 uses cunit for its unit test frame work:
 
-* cunit >= 2.1
+* cunit >= 2.1 (can use: ``sudo apt-get install libcunit1 libcunit1-doc libcunit1-dev``)
 
 To build sources under the examples directory, libev and nghttp3 are
 required:
 
-* libev
+* libev (can use: ``sudo apt-get install libev-dev``)
 * nghttp3 (https://github.com/ngtcp2/nghttp3) for HTTP/3
 
 The client and server under examples directory require patched OpenSSL
@@ -102,8 +103,9 @@ Build from git
    $ make -j$(nproc) check
    $ make install
    $ cd ..
-   $ git clone https://github.com/ngtcp2/ngtcp2
+   $ git clone https://github.com/simonasmulevicius/ngtcp2.git
    $ cd ngtcp2
+   $ git checkout draft-32
    $ autoreconf -i
    $ # For Mac users who have installed libev with MacPorts, append
    $ # ',-L/opt/local/lib' to LDFLAGS, and also pass
@@ -139,6 +141,31 @@ Server
 The notable options are:
 
 - ``-V``, ``--validate-addr``: Enforce stateless address validation.
+
+
+Typical example of running Client/Server
+~~~~~~
+
+1. Create keys:
+   
+.. code-block:: text
+   
+   $ cd ./examples
+   $ openssl req -nodes -new -x509 -keyout server.key -out server.cert
+   $ cd ..
+
+2.1 Run Server:
+   
+.. code-block:: text
+   
+   $ ./examples/server 127.0.0.1 7777  ./examples/server.key ./examples/server.cert
+
+
+2.2 Run Client:
+   
+.. code-block:: text
+
+   $ ./examples/client 127.0.0.1 7777  
 
 H09client/H09server
 -------------------
@@ -217,6 +244,16 @@ Configuring Wireshark for QUIC
 
 `Wireshark <https://www.wireshark.org/download.html>`_ can be configured to
 analyze QUIC traffic using the following steps:
+
+0. To install the latest Wireshark version on Ubuntu use the following steps:
+
+   .. code-block:: text
+
+      $ sudo add-apt-repository ppa:wireshark-dev/stable
+      $ sudo apt update
+      $ sudo apt -y install wireshark
+
+   (Taken from https://computingforgeeks.com/how-to-install-wireshark-on-ubuntu-desktop/)
 
 1. Set *SSLKEYLOGFILE* environment variable:
 

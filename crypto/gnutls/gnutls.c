@@ -307,6 +307,8 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,
                           const uint8_t *sample) {
+  printf("ngtcp2_crypto_hp_mask was called from gnutls.c");
+  
   gnutls_cipher_algorithm_t cipher =
       (gnutls_cipher_algorithm_t)hp->native_handle;
   gnutls_cipher_hd_t hd = hp_ctx->native_handle;

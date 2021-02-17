@@ -771,18 +771,63 @@ int Handler::handshake_completed() {
   return 0;
 }
 
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+//
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
+    
+  if (config.noencryption){
+    printf(" --------------------------------\n");
+    printf(" [No encryption (Plaintext mode)]\n");
+    printf("\n");
+    printf(" NGTCP2_HP_MASKLEN: %d \n", NGTCP2_HP_MASKLEN);
+
+    //TODO write to dest NGTCP2_HP_MASKLEN number of 0s
+    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
+    
+//    for (int i=0; i<NGTCP2_HP_MASKLEN; i++){
+//      printf(" dest[%d]: %d \n", i, dest[i]);
+//      //dest[i] = 0;
+//      //printf("dest[%d]: %d \n", i, dest[i]);
+//    }
+
+    printf("\n");
+    printf(" --------------------------------\n");
+    return 0;
+  }
+    
+  printf(" --------------------------------\n");
+  printf(" [Encryption is turned ON]\n");
+    
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
+    printf("  \n");
+    printf("  \n");
+    printf(" do_hp_mask: NGTCP2_ERR_CALLBACK_FAILURE \n");
+    printf("  \n");
+    printf("  \n");
+    printf(" --------------------------------\n");
     return NGTCP2_ERR_CALLBACK_FAILURE;
   }
 
   if (!config.quiet && config.show_secret) {
+    printf("  \n");
+    printf("  \n");
+    printf(" do_hp_mask: DEBUG \n");
+    printf("  \n");
+    printf("  \n");
     debug::print_hp_mask(dest, NGTCP2_HP_MASKLEN, sample, NGTCP2_HP_SAMPLELEN);
   }
 
-  return 0;
+    printf("  \n");
+    printf("  \n");
+    printf(" do_hp_mask: OK - return 0 \n");
+    printf("  \n");
+    printf("  \n");
+    printf(" -----------------\n");
+    return 0;
 }
 } // namespace
 
@@ -3258,6 +3303,10 @@ void config_set_default(Config &config) {
 }
 } // namespace
 
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+//
 namespace {
 void print_help() {
   print_usage();
@@ -3385,6 +3434,10 @@ Options:
             << util::format_uint_iec(config.max_stream_window) << R"(
   -h, --help  Display this help and exit.
 
+  -P          Plaintext mode (No encryption). 
+              Only to be used in development!
+              Both client and server have to set this flag.
+          
 ---
 
   The <SIZE> argument is an integer and an optional unit (e.g., 10K is
@@ -3401,6 +3454,13 @@ Options:
 std::ofstream keylog_file;
 
 int main(int argc, char **argv) {
+  printf("------------------------------------------------------------------\n");
+  printf(" This is experimental un-encrypted ngtcp2 version                 \n");
+  printf("\n");
+  printf(" Co-author: Simonas Mulevicius, the University of Cambridge, 2021 \n");
+  printf("------------------------------------------------------------------\n");
+  printf("\n");
+  
   config_set_default(config);
 
   for (;;) {
@@ -3440,7 +3500,7 @@ int main(int argc, char **argv) {
         {nullptr, 0, nullptr, 0}};
 
     auto optidx = 0;
-    auto c = getopt_long(argc, argv, "d:hqr:st:V", long_opts, &optidx);
+    auto c = getopt_long(argc, argv, "d:hqr:st:VP", long_opts, &optidx);
     if (c == -1) {
       break;
     }
@@ -3480,9 +3540,19 @@ int main(int argc, char **argv) {
       // --validate-addr
       config.validate_addr = true;
       break;
+    
+    //
+    // 2021, January
+    // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+    //    
+    case 'P':
+      // No encryption (Plaintext mode)
+      config.noencryption = true;
+      break;
+      
     case '?':
       print_usage();
-      exit(EXIT_FAILURE);
+      exit(EXIT_FAILURE);  
     case 0:
       switch (flag) {
       case 1:
