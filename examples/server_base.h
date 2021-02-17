@@ -132,6 +132,12 @@ struct Config {
   // send_trailers controls whether server sends trailer fields or
   // not.
   bool send_trailers;
+
+  // 2021, January
+  // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+
+  // noencryption is true if developers do not want to encrypt payload and headers
+  bool noencryption;
 };
 
 struct Buffer {

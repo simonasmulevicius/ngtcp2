@@ -163,6 +163,12 @@ struct Config {
   std::string_view sni;
   // initial_rtt is an initial RTT.
   ngtcp2_duration initial_rtt;
+
+  // 2021, January
+  // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+
+  // noencryption is true if developers do not want to encrypt payload and headers
+  bool noencryption;
 };
 
 struct Buffer {

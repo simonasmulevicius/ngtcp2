@@ -348,6 +348,61 @@ int ngtcp2_crypto_encrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
   return 0;
 }
 
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
+                                  const ngtcp2_crypto_aead *aead,
+                                  const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                  const uint8_t *plaintext, 
+                                  size_t plaintextlen,
+                                  const uint8_t *nonce, 
+                                  size_t noncelen,
+                                  const uint8_t *ad, 
+                                  size_t adlen) {
+
+    printf(" ------------------------------  \n");
+    printf(" Using ngtcp2_crypto_encrypt     \n");
+    printf("\n");
+    printf("plaintextlen: %d                 \n", plaintextlen);
+    printf("\n");
+    printf("plaintext:                       \n");
+    printf(" ------------------------------  \n");
+    fwrite(plaintext, plaintextlen, 1, stdout);
+    printf("\n");
+    printf(" ------------------------------  \n");
+    for (int i=0; i<plaintextlen; i++){
+       printf(" plaintext[%d]: %d \n", i, plaintext[i]);
+    }
+    printf(" ----------------------------  \n");
+
+
+    
+    printf("Before memcpy dest:\n");
+    for (int i=0; i<plaintextlen; i++){
+       printf(" dest[%d]: %d \n", i, dest[i]);
+    }
+    memcpy(dest, plaintext, plaintextlen);
+    printf("After memcpy dest:\n");
+    for (int i=0; i<plaintextlen; i++){
+       printf(" dest[%d]: %d \n", i, dest[i]);
+    }
+    
+    /// add padding of 0s
+    size_t taglen = aead->max_overhead;  
+    printf(" taglen: %d  \n", taglen);
+
+    
+    for (int i=0; i<taglen; i++){
+        dest[plaintextlen+i] = 0;
+    }
+    
+    printf("\n");
+    printf(" ------------------------------  \n");
+
+  return 0;
+}
+
+
 int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                           const ngtcp2_crypto_aead_ctx *aead_ctx,
                           const uint8_t *ciphertext, size_t ciphertextlen,
@@ -383,6 +438,37 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 
   return 0;
 }
+
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+                                  const ngtcp2_crypto_aead *aead,
+                                  const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                  const uint8_t *ciphertext, 
+                                  size_t ciphertextlen,
+                                  const uint8_t *nonce, 
+                                  size_t noncelen,
+                                  const uint8_t *ad, 
+                                  size_t adlen) {
+ 
+    printf(" ------------------------------  \n");
+    printf(" Using ngtcp2_crypto_decrypt     \n");
+    
+    // ignore padding of 0s
+    size_t taglen = aead->max_overhead;  
+    printf(" taglen: %d  \n", taglen);
+    
+    for (int i=0; i<ciphertextlen-taglen; i++){
+        dest[i] = ciphertext[i];
+    }
+    
+    printf("\n");
+    printf(" ------------------------------  \n");
+    
+    return 0;
+}
+
+
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,
