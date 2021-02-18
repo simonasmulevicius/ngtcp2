@@ -781,53 +781,74 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
     
   if (config.noencryption){
     printf(" --------------------------------\n");
-    printf(" [No encryption (Plaintext mode)]\n");
-    printf("\n");
-    printf(" NGTCP2_HP_MASKLEN: %d \n", NGTCP2_HP_MASKLEN);
-
-    //TODO write to dest NGTCP2_HP_MASKLEN number of 0s
-    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
-    
-//    for (int i=0; i<NGTCP2_HP_MASKLEN; i++){
-//      printf(" dest[%d]: %d \n", i, dest[i]);
-//      //dest[i] = 0;
-//      //printf("dest[%d]: %d \n", i, dest[i]);
-//    }
-
-    printf("\n");
+    printf(" [ Encryption is turned    OFF  ]\n");
     printf(" --------------------------------\n");
+
+    //write to dest NGTCP2_HP_MASKLEN number of 0s
+    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
     return 0;
-  }
+  } 
     
   printf(" --------------------------------\n");
-  printf(" [Encryption is turned ON]\n");
+  printf(" [ Encryption is turned    ON   ]\n");
+  printf(" --------------------------------\n");
     
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
-    printf("  \n");
-    printf("  \n");
-    printf(" do_hp_mask: NGTCP2_ERR_CALLBACK_FAILURE \n");
-    printf("  \n");
-    printf("  \n");
-    printf(" --------------------------------\n");
     return NGTCP2_ERR_CALLBACK_FAILURE;
   }
 
   if (!config.quiet && config.show_secret) {
-    printf("  \n");
-    printf("  \n");
-    printf(" do_hp_mask: DEBUG \n");
-    printf("  \n");
-    printf("  \n");
     debug::print_hp_mask(dest, NGTCP2_HP_MASKLEN, sample, NGTCP2_HP_SAMPLELEN);
   }
 
-    printf("  \n");
-    printf("  \n");
-    printf(" do_hp_mask: OK - return 0 \n");
-    printf("  \n");
-    printf("  \n");
-    printf(" -----------------\n");
     return 0;
+}
+} // namespace
+
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+//
+namespace {
+int ngtcp2_crypto_encrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+                             const ngtcp2_crypto_aead_ctx *aead_ctx,
+                             const uint8_t *plaintext, size_t plaintextlen,
+                             const uint8_t *nonce, size_t noncelen,
+                             const uint8_t *ad, size_t adlen) {
+  if (!config.noencryption){
+    return ngtcp2_crypto_encrypt_cb(dest, aead, aead_ctx, 
+      plaintext, plaintextlen, nonce, noncelen, ad, adlen);
+  }
+  
+  
+  if (ngtcp2_crypto_encrypt_unsecure(dest, aead, aead_ctx, plaintext, plaintextlen,
+                            nonce, noncelen, ad, adlen) != 0) {
+    return NGTCP2_ERR_CALLBACK_FAILURE;
+  }
+  return 0;
+}
+} // namespace
+
+//
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+//
+namespace {
+int ngtcp2_crypto_decrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+                             const ngtcp2_crypto_aead_ctx *aead_ctx,
+                             const uint8_t *ciphertext, size_t ciphertextlen,
+                             const uint8_t *nonce, size_t noncelen,
+                             const uint8_t *ad, size_t adlen) {
+  if (!config.noencryption){
+    return ngtcp2_crypto_decrypt_cb(dest, aead, aead_ctx, 
+      ciphertext, ciphertextlen, nonce, noncelen, ad, adlen);
+  }
+
+  if (ngtcp2_crypto_decrypt_unsecure(dest, aead, aead_ctx, ciphertext, ciphertextlen,
+                            nonce, noncelen, ad, adlen) != 0) {
+    return NGTCP2_ERR_TLS_DECRYPT;
+  }
+  return 0;
 }
 } // namespace
 
@@ -1510,8 +1531,8 @@ int Handler::init(const Endpoint &ep, const sockaddr *sa, socklen_t salen,
       ::recv_crypto_data,
       ::handshake_completed,
       nullptr, // recv_version_negotiation
-      ngtcp2_crypto_encrypt_cb,
-      ngtcp2_crypto_decrypt_cb,
+      ngtcp2_crypto_encrypt_unsecure_cb,
+      ngtcp2_crypto_decrypt_unsecure_cb,
       do_hp_mask,
       ::recv_stream_data,
       acked_crypto_offset,

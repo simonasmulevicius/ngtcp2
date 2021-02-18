@@ -359,6 +359,9 @@ int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest,
                                   size_t noncelen,
                                   const uint8_t *ad, 
                                   size_t adlen) {
+    printf(" ---------------------------------------\n");
+    printf(" [ Payload encryption is turned   OFF  ]\n");
+    printf(" ---------------------------------------\n");
 
     printf(" ------------------------------  \n");
     printf(" Using ngtcp2_crypto_encrypt     \n");
@@ -450,7 +453,10 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
                                   size_t noncelen,
                                   const uint8_t *ad, 
                                   size_t adlen) {
- 
+    printf(" ---------------------------------------\n");
+    printf(" [ Payload encryption is turned   OFF  ]\n");
+    printf(" ---------------------------------------\n");
+
     printf(" ------------------------------  \n");
     printf(" Using ngtcp2_crypto_decrypt     \n");
     

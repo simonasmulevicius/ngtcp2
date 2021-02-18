@@ -282,6 +282,21 @@ NGTCP2_EXTERN int ngtcp2_crypto_encrypt(uint8_t *dest,
 /**
  * @function
  *
+ * `ngtcp2_crypto_encrypt_unsecure` is unsecure version 
+ *  of `ngtcp2_crypto_encrypt` and this implementation
+ *  doesn't encrypt data.
+ */
+NGTCP2_EXTERN int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest,
+                                        const ngtcp2_crypto_aead *aead,
+                                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                        const uint8_t *plaintext,
+                                        size_t plaintextlen,
+                                        const uint8_t *nonce, size_t noncelen,
+                                        const uint8_t *ad, size_t adlen);
+
+/**
+ * @function
+ *
  * `ngtcp2_crypto_encrypt_cb` is a wrapper function around
  * `ngtcp2_crypto_encrypt`.  It can be directly passed to
  * :member:`ngtcp2_conn_callbacks.encrypt` field.
@@ -295,6 +310,20 @@ ngtcp2_crypto_encrypt_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                          const uint8_t *plaintext, size_t plaintextlen,
                          const uint8_t *nonce, size_t noncelen,
                          const uint8_t *ad, size_t adlen);
+
+// /**
+//  * @function
+//  *
+//  * `ngtcp2_crypto_encrypt_unsecure_cb` is unsecure version 
+//  *  of `ngtcp2_crypto_encrypt_cb` and this implementation
+//  *  doesn't encrypt data.
+//  */
+// NGTCP2_EXTERN int
+// ngtcp2_crypto_encrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+//                          const ngtcp2_crypto_aead_ctx *aead_ctx,
+//                          const uint8_t *plaintext, size_t plaintextlen,
+//                          const uint8_t *nonce, size_t noncelen,
+//                          const uint8_t *ad, size_t adlen);
 
 /**
  * @function
@@ -319,6 +348,22 @@ NGTCP2_EXTERN int ngtcp2_crypto_decrypt(uint8_t *dest,
 /**
  * @function
  *
+ * `ngtcp2_crypto_decrypt_unsecure` is unsecure version 
+ *  of `ngtcp2_crypto_decrypt` and this implementation
+ *  doesn't encrypt data.
+ */
+NGTCP2_EXTERN int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
+                                        const ngtcp2_crypto_aead *aead,
+                                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                        const uint8_t *ciphertext,
+                                        size_t ciphertextlen,
+                                        const uint8_t *nonce, size_t noncelen,
+                                        const uint8_t *ad, size_t adlen);
+
+
+/**
+ * @function
+ *
  * `ngtcp2_crypto_decrypt_cb` is a wrapper function around
  * `ngtcp2_crypto_decrypt`.  It can be directly passed to
  * :member:`ngtcp2_conn_callbacks.decrypt` field.
@@ -332,6 +377,21 @@ ngtcp2_crypto_decrypt_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                          const uint8_t *ciphertext, size_t ciphertextlen,
                          const uint8_t *nonce, size_t noncelen,
                          const uint8_t *ad, size_t adlen);
+ 
+ 
+// /**
+//  * @function
+//  *
+//  * `ngtcp2_crypto_decrypt_unsecure_cb` is unsecure version 
+//  *  of `ngtcp2_crypto_decrypt_cb` and this implementation
+//  *  doesn't encrypt data.
+//  */
+// NGTCP2_EXTERN int
+// ngtcp2_crypto_decrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+//                          const ngtcp2_crypto_aead_ctx *aead_ctx,
+//                          const uint8_t *ciphertext, size_t ciphertextlen,
+//                          const uint8_t *nonce, size_t noncelen,
+//                          const uint8_t *ad, size_t adlen);
 
 /**
  * @function
