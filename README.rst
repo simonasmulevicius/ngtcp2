@@ -153,18 +153,18 @@ Typical example of running Client/Server
    $ openssl req -nodes -new -x509 -keyout server.key -out server.cert
    $ cd ..
 
-2.1 Run Server:
+2.1 Run Server (in plaintext mode):
    
 .. code-block:: text
    
-   $ ./examples/server 127.0.0.1 7777  ./examples/server.key ./examples/server.cert
+   $ ./examples/server --htdocs ./examples/servers_folder -P 10.0.0.100 7777  ./examples/server.key ./examples/server.cert
 
 
-2.2 Run Client:
+2.2 Run Client (in plaintext mode):
    
 .. code-block:: text
 
-   $ ./examples/client 127.0.0.1 7777  
+   $ ./examples/client -P 10.0.0.100 7777 https://10.0.0.100/index_10k.html  
 
 H09client/H09server
 -------------------
