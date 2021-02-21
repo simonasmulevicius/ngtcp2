@@ -109,7 +109,9 @@ Build from git
    $ # For Mac users who have installed libev with MacPorts, append
    $ # ',-L/opt/local/lib' to LDFLAGS, and also pass
    $ # CPPFLAGS="-I/opt/local/include" to ./configure.
-   $ ./configure PKG_CONFIG_PATH=$PWD/../openssl/build/lib/pkgconfig:$PWD/../nghttp3/build/lib/pkgconfig LDFLAGS="-Wl,-rpath,$PWD/../openssl/build/lib"
+   $ 
+   $ # GSO is disabled in the testing environment 
+   $ ./configure PKG_CONFIG_PATH=$PWD/../openssl/build/lib/pkgconfig:$PWD/../nghttp3/build/lib/pkgconfig LDFLAGS="-Wl,-rpath,$PWD/../openssl/build/lib" CXXFLAGS=-DNGTCP2_ENABLE_UDP_GSO=0
    $ make -j$(nproc) check
 
 Client/Server
