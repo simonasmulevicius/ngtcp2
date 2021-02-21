@@ -479,7 +479,7 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,
                           const uint8_t *sample) {
-  printf("ngtcp2_crypto_hp_mask was called from openssl.c");
+  printf("ngtcp2_crypto_hp_mask was called from openssl.c \n");
     
   static const uint8_t PLAINTEXT[] = "\x00\x00\x00\x00\x00";
   EVP_CIPHER_CTX *actx = hp_ctx->native_handle;
