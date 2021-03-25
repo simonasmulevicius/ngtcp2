@@ -75,10 +75,6 @@
 /* NGTCP2_MIN_FRAME_PAYLOADLEN is the minimum frame payload length. */
 #define NGTCP2_MIN_FRAME_PAYLOADLEN 16
 
-/* NGTCP2_MAX_VARINT is the maximum value which can be encoded in
-   variable-length integer encoding */
-#define NGTCP2_MAX_VARINT ((1ULL << 62) - 1)
-
 /* NGTCP2_MAX_SERVER_STREAM_ID_BIDI is the maximum bidirectional
    server stream ID. */
 #define NGTCP2_MAX_SERVER_STREAM_ID_BIDI ((int64_t)0x3ffffffffffffffdll)
@@ -297,6 +293,8 @@ typedef struct ngtcp2_handshake_done {
 
 typedef struct ngtcp2_datagram {
   uint8_t type;
+  /* dgram_id is an opaque identifier chosen by an application. */
+  uint64_t dgram_id;
   /* datacnt is the number of elements that data contains. */
   size_t datacnt;
   /* data is a pointer to ngtcp2_vec array that stores data. */

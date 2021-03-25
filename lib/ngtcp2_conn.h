@@ -36,7 +36,6 @@
 #include "ngtcp2_acktr.h"
 #include "ngtcp2_rtb.h"
 #include "ngtcp2_strm.h"
-#include "ngtcp2_mem.h"
 #include "ngtcp2_idtr.h"
 #include "ngtcp2_str.h"
 #include "ngtcp2_pkt.h"
@@ -150,11 +149,6 @@ void ngtcp2_path_challenge_entry_init(ngtcp2_path_challenge_entry *pcent,
 /* NGTCP2_CONN_FLAG_TRANSPORT_PARAM_RECVED is set if transport
    parameters are received. */
 #define NGTCP2_CONN_FLAG_TRANSPORT_PARAM_RECVED 0x04
-/* NGTCP2_CONN_FLAG_RECV_PROTECTED_PKT is set when a protected packet
-   is received, and decrypted successfully.  This flag is used to stop
-   retransmitting handshake packets.  It might be replaced with an
-   another mechanism when we implement key update. */
-#define NGTCP2_CONN_FLAG_RECV_PROTECTED_PKT 0x08
 /* NGTCP2_CONN_FLAG_RECV_RETRY is set when a client receives Retry
    packet. */
 #define NGTCP2_CONN_FLAG_RECV_RETRY 0x10
@@ -186,6 +180,10 @@ void ngtcp2_path_challenge_entry_init(ngtcp2_path_challenge_entry *pcent,
 /* NGTCP2_CONN_FLAG_SERVER_ADDR_VERIFIED indicates that server as peer
    verified client address.  This flag is only used by client. */
 #define NGTCP2_CONN_FLAG_SERVER_ADDR_VERIFIED 0x4000
+/* NGTCP2_CONN_FLAG_EARLY_KEY_INSTALLED indicates that an early key is
+   installed.  conn->early.ckm cannot be used for this purpose because
+   it might be discarded when a certain condition is met. */
+#define NGTCP2_CONN_FLAG_EARLY_KEY_INSTALLED 0x8000
 
 typedef struct ngtcp2_crypto_data {
   ngtcp2_buf buf;
@@ -427,6 +425,21 @@ struct ngtcp2_conn {
     /* discard_started_ts is the timestamp when the timer to discard
        early key has started.  Used by server only. */
     ngtcp2_tstamp discard_started_ts;
+    /* transport_params is the values remembered by client from the
+       previous session.  These are set by
+       ngtcp2_conn_set_early_remote_transport_params().  Server does
+       not use this field.  Server must not set values for these
+       parameters that are smaller than the remembered values. */
+    struct {
+      uint64_t initial_max_streams_bidi;
+      uint64_t initial_max_streams_uni;
+      uint64_t initial_max_stream_data_bidi_local;
+      uint64_t initial_max_stream_data_bidi_remote;
+      uint64_t initial_max_stream_data_uni;
+      uint64_t initial_max_data;
+      uint64_t active_connection_id_limit;
+      uint64_t max_datagram_frame_size;
+    } transport_params;
   } early;
 
   struct {
@@ -583,6 +596,8 @@ typedef struct ngtcp2_vmsg_datagram {
   const ngtcp2_vec *data;
   /* datacnt is the number of ngtcp2_vec pointed by data. */
   size_t datacnt;
+  /* dgram_id is an opaque identifier chosen by an application. */
+  uint64_t dgram_id;
   /* flags is bitwise OR of zero or more of
      NGTCP2_WRITE_DATAGRAM_FLAG_*. */
   uint32_t flags;

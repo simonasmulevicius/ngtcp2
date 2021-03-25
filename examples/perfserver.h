@@ -35,10 +35,10 @@
 #include <deque>
 #include <string_view>
 #include <memory>
+#include <set>
 
 #include <ngtcp2/ngtcp2.h>
 #include <ngtcp2/ngtcp2_crypto.h>
-#include <nghttp3/nghttp3.h>
 
 #include <ev.h>
 
@@ -49,47 +49,24 @@
 
 using namespace ngtcp2;
 
-struct HTTPHeader {
-  HTTPHeader(const std::string_view &name, const std::string_view &value)
-      : name(name), value(value) {}
-
-  std::string_view name;
-  std::string_view value;
-};
-
 class Handler;
-struct FileEntry;
 
 struct Stream {
   Stream(int64_t stream_id, Handler *handler);
 
-  int start_response(nghttp3_conn *conn);
-  std::pair<FileEntry, int> open_file(const std::string &path);
-  void map_file(const FileEntry &fe);
-  int send_status_response(nghttp3_conn *conn, unsigned int status_code,
-                           const std::vector<HTTPHeader> &extra_headers = {});
-  int send_redirect_response(nghttp3_conn *conn, unsigned int status_code,
-                             const std::string_view &path);
-  int64_t find_dyn_length(const std::string_view &path);
-  void http_acked_stream_data(size_t datalen);
+  int start_response();
 
   int64_t stream_id;
   Handler *handler;
-  // uri is request uri/path.
-  std::string uri;
-  std::string method;
-  std::string authority;
-  std::string status_resp_body;
-  // data is a pointer to the memory which maps file denoted by fd.
-  uint8_t *data;
-  // datalen is the length of mapped file by data.
-  uint64_t datalen;
-  // dynresp is true if dynamic data response is enabled.
-  bool dynresp;
-  // dyndataleft is the number of dynamic data left to send.
-  uint64_t dyndataleft;
-  // dynbuflen is the number of bytes in-flight.
-  uint64_t dynbuflen;
+  uint64_t bytes_left;
+  std::array<uint8_t, sizeof(uint64_t)> data;
+  size_t datalen;
+};
+
+struct StreamIDLess {
+  constexpr bool operator()(const Stream *lhs, const Stream *rhs) const {
+    return lhs->stream_id < rhs->stream_id;
+  }
 };
 
 class Server;
@@ -130,7 +107,6 @@ public:
   Server *server() const;
   int recv_stream_data(uint32_t flags, int64_t stream_id, const uint8_t *data,
                        size_t datalen);
-  int acked_stream_data_offset(int64_t stream_id, uint64_t datalen);
   const ngtcp2_cid *scid() const;
   const ngtcp2_cid *pscid() const;
   const ngtcp2_cid *rcid() const;
@@ -149,30 +125,15 @@ public:
                  const uint8_t *current_rx_secret,
                  const uint8_t *current_tx_secret, size_t secretlen);
 
-  int setup_httpconn();
-  void http_consume(int64_t stream_id, size_t nconsumed);
-  void extend_max_remote_streams_bidi(uint64_t max_streams);
   Stream *find_stream(int64_t stream_id);
-  void http_begin_request_headers(int64_t stream_id);
-  void http_recv_request_header(Stream *stream, int32_t token,
-                                nghttp3_rcbuf *name, nghttp3_rcbuf *value);
-  int http_end_request_headers(Stream *stream);
-  int http_end_stream(Stream *stream);
-  int start_response(Stream *stream);
-  int on_stream_reset(int64_t stream_id);
   int extend_max_stream_data(int64_t stream_id, uint64_t max_data);
   void shutdown_read(int64_t stream_id, int app_error_code);
-  void http_acked_stream_data(Stream *stream, size_t datalen);
-  int push_content(int64_t stream_id, const std::string_view &authority,
-                   const std::string_view &path);
-  void http_stream_close(int64_t stream_id, uint64_t app_error_code);
-  int http_send_stop_sending(int64_t stream_id, uint64_t app_error_code);
-  int http_reset_stream(int64_t stream_id, uint64_t app_error_code);
 
   void reset_idle_timer();
 
   void write_qlog(const void *data, size_t datalen);
   void singal_write();
+  void add_sendq(Stream *stream);
 
 private:
   size_t max_pktlen_;
@@ -185,8 +146,8 @@ private:
   ngtcp2_cid scid_;
   ngtcp2_cid pscid_;
   ngtcp2_cid rcid_;
-  nghttp3_conn *httpconn_;
   std::unordered_map<int64_t, std::unique_ptr<Stream>> streams_;
+  std::set<Stream *, StreamIDLess> sendq_;
   // conn_closebuf_ contains a packet which contains CONNECTION_CLOSE.
   // This packet is repeatedly sent as a response to the incoming
   // packet in draining period.

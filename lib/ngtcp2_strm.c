@@ -54,7 +54,6 @@ int ngtcp2_strm_init(ngtcp2_strm *strm, int64_t stream_id, uint32_t flags,
   strm->rx.window = strm->rx.max_offset = strm->rx.unsent_max_offset =
       max_rx_offset;
   strm->me.key = (uint64_t)stream_id;
-  strm->me.next = NULL;
   strm->pe.index = NGTCP2_PQ_BAD_INDEX;
   strm->mem = mem;
   strm->app_error_code = 0;
@@ -111,6 +110,12 @@ uint64_t ngtcp2_strm_rx_offset(ngtcp2_strm *strm) {
   return ngtcp2_rob_first_gap_offset(strm->rx.rob);
 }
 
+/* strm_rob_heavily_fragmented returns nonzero if the number of gaps
+   in |rob| exceeds the limit. */
+static int strm_rob_heavily_fragmented(ngtcp2_rob *rob) {
+  return ngtcp2_ksl_len(&rob->gapksl) >= 1000;
+}
+
 int ngtcp2_strm_recv_reordering(ngtcp2_strm *strm, const uint8_t *data,
                                 size_t datalen, uint64_t offset) {
   int rv;
@@ -127,6 +132,10 @@ int ngtcp2_strm_recv_reordering(ngtcp2_strm *strm, const uint8_t *data,
         return rv;
       }
     }
+  }
+
+  if (strm_rob_heavily_fragmented(strm->rx.rob)) {
+    return NGTCP2_ERR_INTERNAL;
   }
 
   return ngtcp2_rob_push(strm->rx.rob, offset, data, datalen);

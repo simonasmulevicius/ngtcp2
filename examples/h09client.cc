@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <memory>
 #include <fstream>
+#include <iomanip>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -116,9 +117,10 @@ void writecb(struct ev_loop *loop, ev_io *w, int revents) {
 
 namespace {
 void readcb(struct ev_loop *loop, ev_io *w, int revents) {
-  auto c = static_cast<Client *>(w->data);
+  auto ep = static_cast<Endpoint *>(w->data);
+  auto c = ep->client;
 
-  if (c->on_read() != 0) {
+  if (c->on_read(*ep) != 0) {
     return;
   }
   auto rv = c->on_write();
@@ -221,15 +223,11 @@ void siginthandler(struct ev_loop *loop, ev_signal *w, int revents) {
 } // namespace
 
 Client::Client(struct ev_loop *loop)
-    : local_addr_{},
-      remote_addr_{},
-      ecn_(0),
+    : remote_addr_{},
       max_pktlen_(0),
       loop_(loop),
-      fd_(-1),
       addr_(nullptr),
       port_(nullptr),
-      sendbuf_{NGTCP2_MAX_PKTLEN_IPV4},
       nstreams_done_(0),
       nstreams_closed_(0),
       nkey_update_(0),
@@ -238,9 +236,7 @@ Client::Client(struct ev_loop *loop)
       should_exit_(false),
       handshake_confirmed_(false) {
   ev_io_init(&wev_, writecb, 0, EV_WRITE);
-  ev_io_init(&rev_, readcb, 0, EV_READ);
   wev_.data = this;
-  rev_.data = this;
   ev_timer_init(&timer_, timeoutcb, 0.,
                 static_cast<double>(config.timeout) / NGTCP2_SECONDS);
   timer_.data = this;
@@ -263,11 +259,6 @@ Client::~Client() {
   disconnect();
 
   ev_io_stop(loop_, &wev_);
-
-  if (fd_ != -1) {
-    ::close(fd_);
-    fd_ = -1;
-  }
 }
 
 void Client::disconnect() {
@@ -281,7 +272,12 @@ void Client::disconnect() {
   ev_timer_stop(loop_, &rttimer_);
   ev_timer_stop(loop_, &timer_);
 
-  ev_io_stop(loop_, &rev_);
+  for (auto &ep : endpoints_) {
+    ev_io_stop(loop_, &ep.rev);
+    close(ep.fd);
+  }
+
+  endpoints_.clear();
 
   ev_signal_stop(loop_, &sigintev_);
 }
@@ -294,16 +290,8 @@ int recv_crypto_data(ngtcp2_conn *conn, ngtcp2_crypto_level crypto_level,
     debug::print_crypto_data(crypto_level, data, datalen);
   }
 
-  auto c = static_cast<Client *>(user_data);
-
-  if (c->recv_crypto_data(crypto_level, data, datalen) != 0) {
-    if (auto err = ngtcp2_conn_get_tls_error(conn); err) {
-      return err;
-    }
-    return NGTCP2_ERR_CRYPTO;
-  }
-
-  return 0;
+  return ngtcp2_crypto_recv_crypto_data_cb(conn, crypto_level, offset, data,
+                                           datalen, user_data);
 }
 } // namespace
 
@@ -374,6 +362,9 @@ int Client::handshake_completed() {
                 << std::endl;
       return -1;
     }
+
+    nstreams_done_ = 0;
+    streams_.clear();
   }
 
   if (!config.quiet) {
@@ -525,6 +516,7 @@ int path_validation(ngtcp2_conn *conn, const ngtcp2_path *path,
 
 namespace {
 int select_preferred_address(ngtcp2_conn *conn, ngtcp2_addr *dest,
+                             void **ppath_user_data,
                              const ngtcp2_preferred_addr *paddr,
                              void *user_data) {
   auto c = static_cast<Client *>(user_data);
@@ -541,6 +533,9 @@ int select_preferred_address(ngtcp2_conn *conn, ngtcp2_addr *dest,
 
   dest->addrlen = addr.len;
   memcpy(dest->addr, &addr.su, dest->addrlen);
+
+  auto path = ngtcp2_conn_get_path(conn);
+  *ppath_user_data = path->user_data;
 
   return 0;
 }
@@ -593,9 +588,17 @@ int recv_new_token(ngtcp2_conn *conn, const ngtcp2_vec *token,
 int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
                  const char *addr, const char *port, uint32_t version,
                  const TLSClientContext &tls_ctx) {
-  local_addr_ = local_addr;
+  endpoints_.reserve(4);
+
+  endpoints_.emplace_back();
+  auto &ep = endpoints_.back();
+  ep.addr = local_addr;
+  ep.client = this;
+  ep.fd = fd;
+  ev_io_init(&ep.rev, readcb, fd, EV_READ);
+  ep.rev.data = &ep;
+
   remote_addr_ = remote_addr;
-  fd_ = fd;
   addr_ = addr;
   port_ = port;
   version_ = version;
@@ -644,6 +647,9 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
       ::recv_new_token,
       ngtcp2_crypto_delete_crypto_aead_ctx_cb,
       ngtcp2_crypto_delete_crypto_cipher_ctx_cb,
+      nullptr, // recv_datagram
+      nullptr, // ack_datagram
+      nullptr, // lost_datagram
   };
 
   auto dis = std::uniform_int_distribution<uint8_t>(
@@ -677,13 +683,12 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
     }
     qlog_ = fopen(path.c_str(), "w");
     if (qlog_ == nullptr) {
-      std::cerr << "Could not open qlog file " << path << ": "
+      std::cerr << "Could not open qlog file " << std::quoted(path) << ": "
                 << strerror(errno) << std::endl;
       return -1;
     }
     settings.qlog.write = qlog_write_cb;
   }
-  settings.max_udp_payload_size = max_pktlen_;
   settings.cc_algo =
       config.cc == "cubic" ? NGTCP2_CC_ALGO_CUBIC : NGTCP2_CC_ALGO_RENO;
   settings.initial_ts = util::timestamp(loop_);
@@ -694,9 +699,9 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
   if (!config.token_file.empty()) {
     std::cerr << "Reading token file " << config.token_file << std::endl;
 
-    auto [t, rv] = util::read_token(config.token_file);
-    if (rv == 0) {
-      token = std::move(t);
+    auto t = util::read_token(config.token_file);
+    if (t) {
+      token = std::move(*t);
       settings.token.base = reinterpret_cast<uint8_t *>(token.data());
       settings.token.len = token.size();
     }
@@ -714,9 +719,10 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
   params.max_idle_timeout = config.timeout;
   params.active_connection_id_limit = 7;
 
-  auto path = ngtcp2_path{
-      {local_addr.len, const_cast<sockaddr *>(&local_addr.su.sa)},
-      {remote_addr.len, const_cast<sockaddr *>(&remote_addr.su.sa)}};
+  auto path =
+      ngtcp2_path{{ep.addr.len, const_cast<sockaddr *>(&ep.addr.su.sa)},
+                  {remote_addr.len, const_cast<sockaddr *>(&remote_addr.su.sa)},
+                  &ep};
   auto rv =
       ngtcp2_conn_client_new(&conn_, &dcid, &scid, &path, version, &callbacks,
                              &settings, &params, nullptr, this);
@@ -747,10 +753,9 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
     }
   }
 
-  ev_io_set(&wev_, fd_, EV_WRITE);
-  ev_io_set(&rev_, fd_, EV_READ);
+  ev_io_set(&wev_, fd, EV_WRITE);
 
-  ev_io_start(loop_, &rev_);
+  ev_io_start(loop_, &ep.rev);
   ev_timer_again(loop_, &timer_);
 
   ev_signal_start(loop_, &sigintev_);
@@ -758,12 +763,12 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
   return 0;
 }
 
-int Client::feed_data(const sockaddr *sa, socklen_t salen,
+int Client::feed_data(const Endpoint &ep, const sockaddr *sa, socklen_t salen,
                       const ngtcp2_pkt_info *pi, uint8_t *data,
                       size_t datalen) {
-  auto path =
-      ngtcp2_path{{local_addr_.len, const_cast<sockaddr *>(&local_addr_.su.sa)},
-                  {salen, const_cast<sockaddr *>(sa)}};
+  auto path = ngtcp2_path{{ep.addr.len, const_cast<sockaddr *>(&ep.addr.su.sa)},
+                          {salen, const_cast<sockaddr *>(sa)},
+                          const_cast<Endpoint *>(&ep)};
   if (auto rv = ngtcp2_conn_read_pkt(conn_, &path, pi, data, datalen,
                                      util::timestamp(loop_));
       rv != 0) {
@@ -789,7 +794,7 @@ int Client::feed_data(const sockaddr *sa, socklen_t salen,
   return 0;
 }
 
-int Client::on_read() {
+int Client::on_read(const Endpoint &ep) {
   std::array<uint8_t, 65536> buf;
   sockaddr_union su;
   size_t pktcnt = 0;
@@ -811,7 +816,7 @@ int Client::on_read() {
     msg.msg_namelen = sizeof(su);
     msg.msg_controllen = sizeof(msg_ctrl);
 
-    auto nread = recvmsg(fd_, &msg, 0);
+    auto nread = recvmsg(ep.fd, &msg, 0);
 
     if (nread == -1) {
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -824,7 +829,7 @@ int Client::on_read() {
 
     if (!config.quiet) {
       std::cerr << "Received packet: local="
-                << util::straddr(&local_addr_.su.sa, local_addr_.len)
+                << util::straddr(&ep.addr.su.sa, ep.addr.len)
                 << " remote=" << util::straddr(&su.sa, msg.msg_namelen)
                 << " ecn=0x" << std::hex << pi.ecn << std::dec << " " << nread
                 << " bytes" << std::endl;
@@ -837,7 +842,7 @@ int Client::on_read() {
       break;
     }
 
-    if (feed_data(&su.sa, msg.msg_namelen, &pi, buf.data(), nread) != 0) {
+    if (feed_data(ep, &su.sa, msg.msg_namelen, &pi, buf.data(), nread) != 0) {
       return -1;
     }
 
@@ -887,18 +892,6 @@ int Client::handle_expiry() {
 }
 
 int Client::on_write() {
-  if (sendbuf_.size() > 0) {
-    if (auto rv = send_packet(); rv != NETWORK_ERR_OK) {
-      if (rv != NETWORK_ERR_SEND_BLOCKED) {
-        last_error_ = quic_err_transport(NGTCP2_ERR_INTERNAL);
-        disconnect();
-      }
-      return rv;
-    }
-  }
-
-  assert(sendbuf_.left() >= max_pktlen_);
-
   if (auto rv = write_streams(); rv != 0) {
     if (rv == NETWORK_ERR_SEND_BLOCKED) {
       schedule_retransmit();
@@ -920,6 +913,7 @@ int Client::write_streams() {
   ngtcp2_vec vec;
   PathStorage path;
   size_t pktcnt = 0;
+  std::array<uint8_t, 64_k> buf;
 
   for (;;) {
     int64_t stream_id = -1;
@@ -941,7 +935,7 @@ int Client::write_streams() {
     ngtcp2_pkt_info pi;
 
     auto nwrite = ngtcp2_conn_writev_stream(
-        conn_, &path.path, &pi, sendbuf_.wpos(), max_pktlen_, &ndatalen, flags,
+        conn_, &path.path, &pi, buf.data(), max_pktlen_, &ndatalen, flags,
         stream_id, &vec, vcnt, util::timestamp(loop_));
     if (nwrite < 0) {
       switch (nwrite) {
@@ -978,12 +972,11 @@ int Client::write_streams() {
       return 0;
     }
 
-    sendbuf_.push(nwrite);
-
-    update_remote_addr(&path.path.remote, &pi);
     reset_idle_timer();
 
-    if (auto rv = send_packet(); rv != NETWORK_ERR_OK) {
+    if (auto rv = send_packet(*static_cast<Endpoint *>(path.path.user_data),
+                              path.path.remote, pi.ecn, buf.data(), nwrite);
+        rv != NETWORK_ERR_OK) {
       if (rv != NETWORK_ERR_SEND_BLOCKED) {
         last_error_ = quic_err_transport(NGTCP2_ERR_INTERNAL);
         disconnect();
@@ -1005,12 +998,6 @@ void Client::schedule_retransmit() {
                         : static_cast<ev_tstamp>(expiry - now) / NGTCP2_SECONDS;
   rttimer_.repeat = t;
   ev_timer_again(loop_, &rttimer_);
-}
-
-int Client::recv_crypto_data(ngtcp2_crypto_level crypto_level,
-                             const uint8_t *data, size_t datalen) {
-  return ngtcp2_crypto_read_write_crypto_data(conn_, crypto_level, data,
-                                              datalen);
 }
 
 namespace {
@@ -1104,54 +1091,55 @@ void Client::start_change_local_addr_timer() {
 }
 
 int Client::change_local_addr() {
-  Address remote_addr, local_addr;
+  Address local_addr;
 
   if (!config.quiet) {
     std::cerr << "Changing local address" << std::endl;
   }
 
-  auto nfd = create_sock(remote_addr, addr_, port_);
+  auto nfd = util::create_nonblock_socket(remote_addr_.su.sa.sa_family,
+                                          SOCK_DGRAM, IPPROTO_UDP);
   if (nfd == -1) {
     return -1;
   }
 
-  if (bind_addr(local_addr, nfd, remote_addr.su.sa.sa_family) != 0) {
-    ::close(nfd);
+  auto val = 1;
+  if (setsockopt(nfd, SOL_SOCKET, SO_REUSEADDR, &val,
+                 static_cast<socklen_t>(sizeof(val))) == -1) {
+    close(nfd);
     return -1;
   }
 
-  ::close(fd_);
+  fd_set_recv_ecn(nfd, remote_addr_.su.sa.sa_family);
 
-  fd_ = nfd;
-  local_addr_ = local_addr;
-  remote_addr_ = remote_addr;
+  if (bind_addr(local_addr, nfd, remote_addr_.su.sa.sa_family) != 0) {
+    close(nfd);
+    return -1;
+  }
+
+  endpoints_.emplace_back();
+  auto &ep = endpoints_.back();
+  ep.addr = local_addr;
+  ep.client = this;
+  ep.fd = nfd;
+  ev_io_init(&ep.rev, readcb, nfd, EV_READ);
+  ep.rev.data = &ep;
+
+  ngtcp2_addr addr;
+  ngtcp2_addr_init(&addr, &local_addr.su.sa, local_addr.len);
 
   if (config.nat_rebinding) {
-    ngtcp2_addr addr;
-    ngtcp2_conn_set_local_addr(
-        conn_,
-        ngtcp2_addr_init(&addr, &local_addr.su.sa, local_addr.len, nullptr));
+    ngtcp2_conn_set_local_addr(conn_, &addr);
   } else {
-    auto path = ngtcp2_path{{local_addr.len, &local_addr.su.sa},
-                            {remote_addr.len, &remote_addr.su.sa}};
-    if (auto rv = ngtcp2_conn_initiate_migration(conn_, &path,
-                                                 util::timestamp(loop_));
+    if (auto rv = ngtcp2_conn_initiate_immediate_migration(
+            conn_, &addr, &ep, util::timestamp(loop_));
         rv != 0) {
-      std::cerr << "ngtcp2_conn_initiate_migration: " << ngtcp2_strerror(rv)
-                << std::endl;
+      std::cerr << "ngtcp2_conn_initiate_immediate_migration: "
+                << ngtcp2_strerror(rv) << std::endl;
     }
   }
 
-  auto wev_active = ev_is_active(&wev_);
-
-  ev_io_stop(loop_, &wev_);
-  ev_io_stop(loop_, &rev_);
-  ev_io_set(&wev_, fd_, EV_WRITE);
-  ev_io_set(&rev_, fd_, EV_READ);
-  if (wev_active) {
-    ev_io_start(loop_, &wev_);
-  }
-  ev_io_start(loop_, &rev_);
+  ev_io_start(loop_, &ep.rev);
 
   return 0;
 }
@@ -1216,42 +1204,31 @@ void Client::start_delay_stream_timer() {
   ev_timer_start(loop_, &delay_stream_timer_);
 }
 
-void Client::update_remote_addr(const ngtcp2_addr *addr,
-                                const ngtcp2_pkt_info *pi) {
-  remote_addr_.len = addr->addrlen;
-  memcpy(&remote_addr_.su, addr->addr, addr->addrlen);
-  if (pi) {
-    ecn_ = pi->ecn;
-  } else {
-    ecn_ = 0;
-  }
-}
-
-int Client::send_packet() {
+int Client::send_packet(const Endpoint &ep, const ngtcp2_addr &remote_addr,
+                        unsigned int ecn, const uint8_t *data, size_t datalen) {
   if (debug::packet_lost(config.tx_loss_prob)) {
     if (!config.quiet) {
       std::cerr << "** Simulated outgoing packet loss **" << std::endl;
     }
-    sendbuf_.reset();
     return NETWORK_ERR_OK;
   }
 
   iovec msg_iov;
-  msg_iov.iov_base = const_cast<uint8_t *>(sendbuf_.rpos());
-  msg_iov.iov_len = sendbuf_.size();
+  msg_iov.iov_base = const_cast<uint8_t *>(data);
+  msg_iov.iov_len = datalen;
 
   msghdr msg{};
-  msg.msg_name = const_cast<sockaddr *>(&remote_addr_.su.sa);
-  msg.msg_namelen = remote_addr_.len;
+  msg.msg_name = const_cast<sockaddr *>(remote_addr.addr);
+  msg.msg_namelen = remote_addr.addrlen;
   msg.msg_iov = &msg_iov;
   msg.msg_iovlen = 1;
 
-  fd_set_ecn(fd_, remote_addr_.su.storage.ss_family, ecn_);
+  fd_set_ecn(ep.fd, remote_addr.addr->sa_family, ecn);
 
   ssize_t nwrite = 0;
 
   do {
-    nwrite = sendmsg(fd_, &msg, 0);
+    nwrite = sendmsg(ep.fd, &msg, 0);
   } while (nwrite == -1 && errno == EINTR);
 
   if (nwrite == -1) {
@@ -1262,15 +1239,13 @@ int Client::send_packet() {
     return NETWORK_ERR_FATAL;
   }
 
-  assert(static_cast<size_t>(nwrite) == sendbuf_.size());
-  sendbuf_.reset();
+  assert(static_cast<size_t>(nwrite) == datalen);
 
   if (!config.quiet) {
     std::cerr << "Sent packet: local="
-              << util::straddr(&local_addr_.su.sa, local_addr_.len)
-              << " remote="
-              << util::straddr(&remote_addr_.su.sa, remote_addr_.len)
-              << " ecn=0x" << std::hex << ecn_ << std::dec << " " << nwrite
+              << util::straddr(&ep.addr.su.sa, ep.addr.len) << " remote="
+              << util::straddr(remote_addr.addr, remote_addr.addrlen)
+              << " ecn=0x" << std::hex << ecn << std::dec << " " << nwrite
               << " bytes" << std::endl;
   }
 
@@ -1282,41 +1257,38 @@ int Client::handle_error() {
     return 0;
   }
 
-  sendbuf_.reset();
-  assert(sendbuf_.left() >= max_pktlen_);
-
   if (last_error_.type == QUICErrorType::TransportVersionNegotiation ||
       last_error_.type == QUICErrorType::TransportIdleTimeout) {
     return 0;
   }
 
+  std::array<uint8_t, 64_k> buf;
+
   PathStorage path;
   ngtcp2_pkt_info pi;
+  ngtcp2_ssize nwrite;
   if (last_error_.type == QUICErrorType::Transport) {
-    auto n = ngtcp2_conn_write_connection_close(
-        conn_, &path.path, &pi, sendbuf_.wpos(), max_pktlen_, last_error_.code,
+    nwrite = ngtcp2_conn_write_connection_close(
+        conn_, &path.path, &pi, buf.data(), max_pktlen_, last_error_.code,
         util::timestamp(loop_));
-    if (n < 0) {
-      std::cerr << "ngtcp2_conn_write_connection_close: " << ngtcp2_strerror(n)
-                << std::endl;
+    if (nwrite < 0) {
+      std::cerr << "ngtcp2_conn_write_connection_close: "
+                << ngtcp2_strerror(nwrite) << std::endl;
       return -1;
     }
-    sendbuf_.push(n);
   } else {
-    auto n = ngtcp2_conn_write_application_close(
-        conn_, &path.path, &pi, sendbuf_.wpos(), max_pktlen_, last_error_.code,
+    nwrite = ngtcp2_conn_write_application_close(
+        conn_, &path.path, &pi, buf.data(), max_pktlen_, last_error_.code,
         util::timestamp(loop_));
-    if (n < 0) {
-      std::cerr << "ngtcp2_conn_write_application_close: " << ngtcp2_strerror(n)
-                << std::endl;
+    if (nwrite < 0) {
+      std::cerr << "ngtcp2_conn_write_application_close: "
+                << ngtcp2_strerror(nwrite) << std::endl;
       return -1;
     }
-    sendbuf_.push(n);
   }
 
-  update_remote_addr(&path.path.remote, &pi);
-
-  return send_packet();
+  return send_packet(*static_cast<Endpoint *>(path.path.user_data),
+                     path.path.remote, pi.ecn, buf.data(), nwrite);
 }
 
 int Client::on_stream_close(int64_t stream_id, uint64_t app_error_code) {
@@ -1447,20 +1419,26 @@ int Client::select_preferred_address(Address &selected_addr,
   int af;
   const uint8_t *binaddr;
   uint16_t port;
-  constexpr uint8_t empty_addr[] = {0, 0, 0, 0, 0, 0, 0, 0,
-                                    0, 0, 0, 0, 0, 0, 0, 0};
-  if (local_addr_.su.sa.sa_family == AF_INET &&
-      memcmp(empty_addr, paddr->ipv4_addr, sizeof(paddr->ipv4_addr)) != 0) {
+
+  auto path = ngtcp2_conn_get_path(conn_);
+
+  switch (path->local.addr->sa_family) {
+  case AF_INET:
+    if (!paddr->ipv4_present) {
+      return 0;
+    }
     af = AF_INET;
     binaddr = paddr->ipv4_addr;
     port = paddr->ipv4_port;
-  } else if (local_addr_.su.sa.sa_family == AF_INET6 &&
-             memcmp(empty_addr, paddr->ipv6_addr, sizeof(paddr->ipv6_addr)) !=
-                 0) {
+    break;
+  case AF_INET6:
+    if (!paddr->ipv6_present) {
+      return 0;
+    }
     af = AF_INET6;
     binaddr = paddr->ipv6_addr;
     port = paddr->ipv6_port;
-  } else {
+  default:
     return -1;
   }
 
@@ -1856,7 +1834,16 @@ int main(int argc, char **argv) {
       break;
     case 'n':
       // --streams
-      config.nstreams = strtol(optarg, nullptr, 10);
+      if (auto n = util::parse_uint(optarg); !n) {
+        std::cerr << "streams: invalid argument" << std::endl;
+        exit(EXIT_FAILURE);
+      } else if (*n > NGTCP2_MAX_VARINT) {
+        std::cerr << "streams: must not exceed " << NGTCP2_MAX_VARINT
+                  << std::endl;
+        exit(EXIT_FAILURE);
+      } else {
+        config.nstreams = *n;
+      }
       break;
     case 'q':
       // --quiet
@@ -1893,11 +1880,11 @@ int main(int argc, char **argv) {
         break;
       case 3:
         // --timeout
-        if (auto [t, rv] = util::parse_duration(optarg); rv != 0) {
+        if (auto t = util::parse_duration(optarg); !t) {
           std::cerr << "timeout: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.timeout = t;
+          config.timeout = *t;
         }
         break;
       case 4:
@@ -1923,20 +1910,20 @@ int main(int argc, char **argv) {
       }
       case 7:
         // --change-local-addr
-        if (auto [t, rv] = util::parse_duration(optarg); rv != 0) {
+        if (auto t = util::parse_duration(optarg); !t) {
           std::cerr << "change-local-addr: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.change_local_addr = t;
+          config.change_local_addr = *t;
         }
         break;
       case 8:
         // --key-update
-        if (auto [t, rv] = util::parse_duration(optarg); rv != 0) {
+        if (auto t = util::parse_duration(optarg); !t) {
           std::cerr << "key-update: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.key_update = t;
+          config.key_update = *t;
         }
         break;
       case 9:
@@ -1945,11 +1932,11 @@ int main(int argc, char **argv) {
         break;
       case 10:
         // --delay-stream
-        if (auto [t, rv] = util::parse_duration(optarg); rv != 0) {
+        if (auto t = util::parse_duration(optarg); !t) {
           std::cerr << "delay-stream: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.delay_stream = t;
+          config.delay_stream = *t;
         }
         break;
       case 11:
@@ -1982,49 +1969,59 @@ int main(int argc, char **argv) {
         break;
       case 18:
         // --max-data
-        if (auto [n, rv] = util::parse_uint_iec(optarg); rv != 0) {
+        if (auto n = util::parse_uint_iec(optarg); !n) {
           std::cerr << "max-data: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.max_data = n;
+          config.max_data = *n;
         }
         break;
       case 19:
         // --max-stream-data-bidi-local
-        if (auto [n, rv] = util::parse_uint_iec(optarg); rv != 0) {
+        if (auto n = util::parse_uint_iec(optarg); !n) {
           std::cerr << "max-stream-data-bidi-local: invalid argument"
                     << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.max_stream_data_bidi_local = n;
+          config.max_stream_data_bidi_local = *n;
         }
         break;
       case 20:
         // --max-stream-data-bidi-remote
-        if (auto [n, rv] = util::parse_uint_iec(optarg); rv != 0) {
+        if (auto n = util::parse_uint_iec(optarg); !n) {
           std::cerr << "max-stream-data-bidi-remote: invalid argument"
                     << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.max_stream_data_bidi_remote = n;
+          config.max_stream_data_bidi_remote = *n;
         }
         break;
       case 21:
         // --max-stream-data-uni
-        if (auto [n, rv] = util::parse_uint_iec(optarg); rv != 0) {
+        if (auto n = util::parse_uint_iec(optarg); !n) {
           std::cerr << "max-stream-data-uni: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.max_stream_data_uni = n;
+          config.max_stream_data_uni = *n;
         }
         break;
       case 22:
         // --max-streams-bidi
-        config.max_streams_bidi = strtoull(optarg, nullptr, 10);
+        if (auto n = util::parse_uint(optarg); !n) {
+          std::cerr << "max-streams-bidi: invalid argument" << std::endl;
+          exit(EXIT_FAILURE);
+        } else {
+          config.max_streams_bidi = *n;
+        }
         break;
       case 23:
         // --max-streams-uni
-        config.max_streams_uni = strtoull(optarg, nullptr, 10);
+        if (auto n = util::parse_uint(optarg); !n) {
+          std::cerr << "max-streams-uni: invalid argument" << std::endl;
+          exit(EXIT_FAILURE);
+        } else {
+          config.max_streams_uni = *n;
+        }
         break;
       case 24:
         // --exit-on-first-stream-close
@@ -2060,11 +2057,11 @@ int main(int argc, char **argv) {
         break;
       case 31:
         // --initial-rtt
-        if (auto [t, rv] = util::parse_duration(optarg); rv != 0) {
+        if (auto t = util::parse_duration(optarg); !t) {
           std::cerr << "initial-rtt: invalid argument" << std::endl;
           exit(EXIT_FAILURE);
         } else {
-          config.initial_rtt = t;
+          config.initial_rtt = *t;
         }
         break;
       }
