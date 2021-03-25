@@ -19,8 +19,8 @@ to build QUIC application you have to choose one of them.  Here is the
 list of TLS stacks which are supposed to provide such interface and
 for which we provide crypto helper libraries:
 
-* `my OpenSSL fork
-  <https://github.com/tatsuhiro-t/openssl/tree/OpenSSL_1_1_1g-quic-draft-33>`_
+* `OpenSSL with QUIC support
+  <https://github.com/quictls/openssl/tree/OpenSSL_1_1_1j+quic>`_
 * GnuTLS >= 3.7.0
 * BoringSSL
 
@@ -42,7 +42,8 @@ callback functions must be set:
 
 * :member:`client_initial <ngtcp2_callbacks.client_initial>`:
   `ngtcp2_crypto_client_initial_cb()` can be passed directly.
-* :member:`recv_crypto_data <ngtcp2_callbacks.recv_crypto_data>`
+* :member:`recv_crypto_data <ngtcp2_callbacks.recv_crypto_data>`:
+  `ngtcp2_crypto_recv_crypto_data_cb()` can be passed directly.
 * :member:`encrypt <ngtcp2_callbacks.encrypt>`:
   `ngtcp2_crypto_encrypt_cb()` can be passed directly.
 * :member:`decrypt <ngtcp2_callbacks.decrypt>`:
@@ -69,7 +70,8 @@ For server application, the following callback functions must be set:
 * :member:`recv_client_initial
   <ngtcp2_callbacks.recv_client_initial>`:
   `ngtcp2_crypto_recv_client_initial_cb()` can be passed directly.
-* :member:`recv_crypto_data <ngtcp2_callbacks.recv_crypto_data>`
+* :member:`recv_crypto_data <ngtcp2_callbacks.recv_crypto_data>`:
+  `ngtcp2_crypto_recv_crypto_data_cb()` can be passed directly.
 * :member:`encrypt <ngtcp2_callbacks.encrypt>`:
   `ngtcp2_crypto_encrypt_cb()` can be passed directly.
 * :member:`decrypt <ngtcp2_callbacks.decrypt>`:
@@ -175,15 +177,22 @@ stream.  For unidirectional stream, call
 `ngtcp2_conn_open_uni_stream()`.  Call `ngtcp2_conn_writev_stream()`
 to send stream data.
 
-Dealing with 0RTT data
-----------------------
+Dealing with early data
+-----------------------
 
 Client application has to load resumed TLS session.  It also has to
-set the remembered transport parameter using
+set the remembered transport parameters using
 `ngtcp2_conn_set_early_remote_transport_params()` function.
 
-Other than that, there is no difference between 0RTT and 1RTT data in
-terms of API usage.
+Other than that, there is no difference between early data and 1RTT
+data in terms of API usage.
+
+If early data is rejected by a server, client must call
+`ngtcp2_conn_early_data_rejected`.  All connection states altered
+during early data transmission are undone.  The library does not
+retransmit early data to server as 1RTT data.  If an application
+wishes to resend data, it has to reopen streams and writes data again.
+See `ngtcp2_conn_early_data_rejected`.
 
 Stream and crypto data ownershp
 -------------------------------
@@ -216,6 +225,15 @@ Application also handles connection idle timeout.
 `ngtcp2_conn_get_idle_expiry()` returns the current idle expiry.  If
 idle timer is expired, the connection should be closed without calling
 `ngtcp2_conn_write_connection_close()`.
+
+Connection migration
+--------------------
+
+In QUIC, client application can migrate to a new local address.
+`ngtcp2_conn_initiate_immediate_migration()` migrates to a new local
+address without checking reachability.  On the other hand,
+`ngtcp2_conn_initiate_migration()` migrates to a new local address
+after a new path is validated (thus reachability is established).
 
 Closing connection
 ------------------

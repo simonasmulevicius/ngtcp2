@@ -311,8 +311,8 @@ static ngtcp2_ssize rtb_reclaim_frame(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
   size_t num_reclaimed = 0;
   int rv;
 
-  /* PADDING only (or PADDING + ACK ) packets will have NULL
-     ent->frc. */
+  assert(ent->flags & NGTCP2_RTB_ENTRY_FLAG_RETRANSMITTABLE);
+
   /* TODO Reconsider the order of pfrc */
   for (frc = ent->frc; frc; frc = frc->next) {
     fr = &frc->fr;
@@ -412,6 +412,9 @@ static ngtcp2_ssize rtb_reclaim_frame(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
       }
 
       break;
+    case NGTCP2_FRAME_DATAGRAM:
+    case NGTCP2_FRAME_DATAGRAM_LEN:
+      continue;
     default:
       rv = ngtcp2_frame_chain_new(&nfrc, rtb->mem);
       if (rv != 0) {
@@ -436,6 +439,33 @@ static ngtcp2_ssize rtb_reclaim_frame(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
   }
 
   return (ngtcp2_ssize)num_reclaimed;
+}
+
+/*
+ * conn_process_lost_datagram calls ngtcp2_lost_datagram callback for
+ * lost DATAGRAM frames.
+ */
+static int conn_process_lost_datagram(ngtcp2_conn *conn,
+                                      ngtcp2_rtb_entry *ent) {
+  ngtcp2_frame_chain *frc;
+  int rv;
+
+  for (frc = ent->frc; frc; frc = frc->next) {
+    switch (frc->fr.type) {
+    case NGTCP2_FRAME_DATAGRAM:
+    case NGTCP2_FRAME_DATAGRAM_LEN:
+      assert(conn->callbacks.lost_datagram);
+
+      rv = conn->callbacks.lost_datagram(conn, frc->fr.datagram.dgram_id,
+                                         conn->user_data);
+      if (rv != 0) {
+        return NGTCP2_ERR_CALLBACK_FAILURE;
+      }
+      break;
+    }
+  }
+
+  return 0;
 }
 
 static int rtb_on_pkt_lost(ngtcp2_rtb *rtb, ngtcp2_ksl_it *it,
@@ -469,7 +499,16 @@ static int rtb_on_pkt_lost(ngtcp2_rtb *rtb, ngtcp2_ksl_it *it,
       return 0;
     }
 
-    if (ent->frc) {
+    if (conn->callbacks.lost_datagram &&
+        (ent->flags & NGTCP2_RTB_ENTRY_FLAG_DATAGRAM)) {
+      rv = conn_process_lost_datagram(conn, ent);
+      if (rv != 0) {
+        return rv;
+      }
+    }
+
+    if (ent->flags & NGTCP2_RTB_ENTRY_FLAG_RETRANSMITTABLE) {
+      assert(ent->frc);
       assert(!(ent->flags & NGTCP2_RTB_ENTRY_FLAG_LOST_RETRANSMITTED));
       assert(UINT64_MAX == ent->lost_ts);
 
@@ -640,6 +679,18 @@ static int rtb_process_acked_pkt(ngtcp2_rtb *rtb, ngtcp2_rtb_entry *ent,
     case NGTCP2_FRAME_RETIRE_CONNECTION_ID:
       assert(conn->dcid.num_retire_queued);
       --conn->dcid.num_retire_queued;
+      break;
+    case NGTCP2_FRAME_DATAGRAM:
+    case NGTCP2_FRAME_DATAGRAM_LEN:
+      if (!conn->callbacks.ack_datagram) {
+        break;
+      }
+
+      rv = conn->callbacks.ack_datagram(conn, frc->fr.datagram.dgram_id,
+                                        conn->user_data);
+      if (rv != 0) {
+        return NGTCP2_ERR_CALLBACK_FAILURE;
+      }
       break;
     }
   }
@@ -1144,7 +1195,9 @@ static int rtb_on_pkt_lost_resched_move(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
     return 0;
   }
 
-  if (!ent->frc) {
+  if (!(ent->flags & NGTCP2_RTB_ENTRY_FLAG_RETRANSMITTABLE) &&
+      (!(ent->flags & NGTCP2_RTB_ENTRY_FLAG_DATAGRAM) ||
+       !conn->callbacks.lost_datagram)) {
     /* PADDING only (or PADDING + ACK ) packets will have NULL
        ent->frc. */
     assert(!(ent->flags & NGTCP2_RTB_ENTRY_FLAG_LOST_RETRANSMITTED));
@@ -1154,9 +1207,7 @@ static int rtb_on_pkt_lost_resched_move(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
 
   if (ent->flags & NGTCP2_RTB_ENTRY_FLAG_LOST_RETRANSMITTED) {
     --rtb->num_lost_pkts;
-  }
 
-  if (ent->flags & NGTCP2_RTB_ENTRY_FLAG_LOST_RETRANSMITTED) {
     ngtcp2_log_info(rtb->log, NGTCP2_LOG_EVENT_RCV,
                     "pkn=%" PRId64
                     " was declared lost and has already been retransmitted",
@@ -1214,6 +1265,22 @@ static int rtb_on_pkt_lost_resched_move(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
         return rv;
       }
       break;
+    case NGTCP2_FRAME_DATAGRAM:
+    case NGTCP2_FRAME_DATAGRAM_LEN:
+      frc = *pfrc;
+
+      if (conn->callbacks.lost_datagram) {
+        rv = conn->callbacks.lost_datagram(conn, frc->fr.datagram.dgram_id,
+                                           conn->user_data);
+        if (rv != 0) {
+          return NGTCP2_ERR_CALLBACK_FAILURE;
+        }
+      }
+
+      *pfrc = (*pfrc)->next;
+
+      ngtcp2_frame_chain_del(frc, conn->mem);
+      break;
     default:
       pfrc = &(*pfrc)->next;
     }
@@ -1249,6 +1316,29 @@ int ngtcp2_rtb_remove_all(ngtcp2_rtb *rtb, ngtcp2_conn *conn,
   }
 
   return 0;
+}
+
+void ngtcp2_rtb_remove_early_data(ngtcp2_rtb *rtb, ngtcp2_conn_stat *cstat) {
+  ngtcp2_rtb_entry *ent;
+  ngtcp2_ksl_it it;
+  int rv;
+
+  it = ngtcp2_ksl_begin(&rtb->ents);
+
+  for (; !ngtcp2_ksl_it_end(&it);) {
+    ent = ngtcp2_ksl_it_get(&it);
+
+    if (ent->hd.type != NGTCP2_PKT_0RTT) {
+      ngtcp2_ksl_it_next(&it);
+      continue;
+    }
+
+    rtb_on_remove(rtb, ent, cstat);
+    rv = ngtcp2_ksl_remove(&rtb->ents, &it, &ent->hd.pkt_num);
+    assert(0 == rv);
+
+    ngtcp2_rtb_entry_del(ent, rtb->mem);
+  }
 }
 
 int ngtcp2_rtb_empty(ngtcp2_rtb *rtb) {

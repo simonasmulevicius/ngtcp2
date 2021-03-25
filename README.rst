@@ -21,12 +21,11 @@ Branching strategy
 ------------------
 
 As of the beginning of draft-23 development, the new branching
-strategy has been introduced.  The master branch tracks the latest
-QUIC draft development.  When new draft-*NN* is published, the new
-branch named draft-*NN-1* is created based on the master branch.
-Those draft-*NN* branches are considered as "archived", which means
-that no update is expected.  PR should be made to the master branch
-only.
+strategy has been introduced.  The main branch tracks the latest QUIC
+draft development.  When new draft-*NN* is published, the new branch
+named draft-*NN-1* is created based on the main branch.  Those
+draft-*NN* branches are considered as "archived", which means that no
+update is expected.  PR should be made to the main branch only.
 
 For older draft implementations:
 
@@ -72,24 +71,26 @@ required:
 * libev (can use: ``sudo apt-get install libev-dev``)
 * nghttp3 (https://github.com/ngtcp2/nghttp3) for HTTP/3
 
-The client and server under examples directory require patched OpenSSL
-as crypto backend:
+The client and server under examples directory require at least one of
+the following TLS backends:
 
-* Patched OpenSSL
-  (https://github.com/tatsuhiro-t/openssl/tree/OpenSSL_1_1_1g-quic-draft-33)
+* `OpenSSL with QUIC support
+  <https://github.com/quictls/openssl/tree/OpenSSL_1_1_1j+quic>`_
+* GnuTLS
+* BoringSSL
 
 For crypto helper library:
 
-* Patched OpenSSL listed above
+* OpenSSL with QUIC support described above
 * libgnutls28-dev >= 3.7.0
-* BoringSSL (commit 78f15a6aa9f11ab7cff736f920c4858cc38264fb)
+* BoringSSL (commit b09f283a030efc650cfcb3476932626c5000b921)
 
 Build from git
 --------------
 
 .. code-block:: text
 
-   $ git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-33 https://github.com/tatsuhiro-t/openssl
+   $ git clone --depth 1 -b OpenSSL_1_1_1j+quic https://github.com/quictls/openssl
    $ cd openssl
    $ # For Linux
    $ ./config enable-tls1_3 --prefix=$PWD/build

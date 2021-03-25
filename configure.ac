@@ -98,6 +98,21 @@ AC_ARG_WITH([jemalloc],
                     [Use jemalloc [default=check]])],
     [request_jemalloc=$withval], [request_jemalloc=check])
 
+AC_ARG_WITH([cunit],
+    [AS_HELP_STRING([--with-cunit],
+                    [Use cunit [default=check]])],
+    [request_cunit=$withval], [request_cunit=check])
+
+AC_ARG_WITH([libnghttp3],
+    [AS_HELP_STRING([--with-libnghttp3],
+                    [Use libnghttp3 [default=check]])],
+    [request_libnghttp3=$withval], [request_libnghttp3=check])
+
+AC_ARG_WITH([libev],
+    [AS_HELP_STRING([--with-libev],
+                    [Use libev [default=check]])],
+    [request_libev=$withval], [request_libev=check])
+
 AC_ARG_WITH([openssl],
     [AS_HELP_STRING([--with-openssl],
                     [Use openssl [default=check]])],
@@ -116,6 +131,16 @@ AC_ARG_WITH([boringssl],
 AC_ARG_VAR([BORINGSSL_CFLAGS], [C compiler flags for BORINGSSL])
 AC_ARG_VAR([BORINGSSL_LIBS], [linker flags for BORINGSSL])
 
+AC_ARG_VAR([LIBEV_CFLAGS], [C compiler flags for libev, skipping any checks])
+AC_ARG_VAR([LIBEV_LIBS], [linker flags for libev, skipping any checks])
+
+AC_ARG_VAR([JEMALLOC_CFLAGS],
+           [C compiler flags for jemalloc, skipping any checks])
+AC_ARG_VAR([JEMALLOC_LIBS], [linker flags for jemalloc, skipping any checks])
+
+AC_ARG_VAR([LIBTOOL_LDFLAGS],
+           [libtool specific flags (e.g., -static-libtool-libs)])
+
 # Checks for programs
 AC_PROG_CC
 AC_PROG_CXX
@@ -129,33 +154,48 @@ PKG_PROG_PKG_CONFIG([0.20])
 
 AX_CXX_COMPILE_STDCXX([17], [noext], [optional])
 
+case "${build}" in
+  *-apple-darwin*)
+    EXTRA_DEFS="-D__APPLE_USE_RFC_3542"
+    AC_SUBST([EXTRA_DEFS])
+    ;;
+esac
+
 # Checks for libraries.
 
 # cunit
-PKG_CHECK_MODULES([CUNIT], [cunit >= 2.1], [have_cunit=yes], [have_cunit=no])
-# If pkg-config does not find cunit, check it using AC_CHECK_LIB.  We
-# do this because Debian (Ubuntu) lacks pkg-config file for cunit.
-if test "x${have_cunit}" = "xno"; then
-  AC_MSG_WARN([${CUNIT_PKG_ERRORS}])
-  AC_CHECK_LIB([cunit], [CU_initialize_registry],
-               [have_cunit=yes], [have_cunit=no])
+have_cunit=no
+if test "x${request_cunit}" != "xno"; then
+  PKG_CHECK_MODULES([CUNIT], [cunit >= 2.1], [have_cunit=yes], [have_cunit=no])
+  # If pkg-config does not find cunit, check it using AC_CHECK_LIB.  We
+  # do this because Debian (Ubuntu) lacks pkg-config file for cunit.
+  if test "x${have_cunit}" = "xno"; then
+    AC_MSG_WARN([${CUNIT_PKG_ERRORS}])
+    AC_CHECK_LIB([cunit], [CU_initialize_registry],
+                 [have_cunit=yes], [have_cunit=no])
+    if test "x${have_cunit}" = "xyes"; then
+      CUNIT_LIBS="-lcunit"
+      CUNIT_CFLAGS=""
+      AC_SUBST([CUNIT_LIBS])
+      AC_SUBST([CUNIT_CFLAGS])
+    fi
+  fi
   if test "x${have_cunit}" = "xyes"; then
-    CUNIT_LIBS="-lcunit"
-    CUNIT_CFLAGS=""
-    AC_SUBST([CUNIT_LIBS])
-    AC_SUBST([CUNIT_CFLAGS])
+    # cunit in Mac OS X requires ncurses. Note that in Mac OS X, test
+    # program can be built without -lncurses, but it emits runtime
+    # error.
+    case "${build}" in
+      *-apple-darwin*)
+        CUNIT_LIBS="$CUNIT_LIBS -lncurses"
+        AC_SUBST([CUNIT_LIBS])
+        ;;
+    esac
   fi
 fi
-if test "x${have_cunit}" = "xyes"; then
-  # cunit in Mac OS X requires ncurses. Note that in Mac OS X, test
-  # program can be built without -lncurses, but it emits runtime
-  # error.
-  case "${build}" in
-    *-apple-darwin*)
-      CUNIT_LIBS="$CUNIT_LIBS -lncurses"
-      AC_SUBST([CUNIT_LIBS])
-      ;;
-  esac
+
+if test "x${request_cunit}" = "xyes" &&
+   test "x${have_cunit}" != "xyes"; then
+  AC_MSG_ERROR([cunit was requested (--with-cunit) but not found])
 fi
 
 AM_CONDITIONAL([HAVE_CUNIT], [ test "x${have_cunit}" = "xyes" ])
@@ -171,8 +211,24 @@ if test "x${request_openssl}" != "xno"; then
     AC_MSG_NOTICE($OPENSSL_PKG_ERRORS)
   fi
   # Until OpenSSL gains mainline support for QUIC, check for a patched version.
-  AC_CHECK_LIB([ssl], [SSL_is_quic], [have_openssl_quic=yes],
-               [have_openssl_quic=no], [$OPENSSL_LIBS])
+  save_CFLAGS="$CFLAGS"
+  save_LIBS="$LIBS"
+  CFLAGS="$OPENSSL_CFLAGS $CFLAGS"
+  LIBS="$OPENSSL_LIBS $LIBS"
+
+  AC_MSG_CHECKING([for SSL_is_quic])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+    #include <openssl/ssl.h>
+  ]], [[
+    SSL *ssl = NULL;
+    SSL_is_quic(ssl);
+  ]])],
+  [AC_MSG_RESULT([yes]); have_openssl_quic=yes],
+  [AC_MSG_RESULT([no]); have_openssl_quic=no])
+
+  CFLAGS="$save_CFLAGS"
+  LIBS="$save_LIBS"
+
   if test "x${have_openssl}${have_openssl_quic}" = "xyesno"; then
     AC_MSG_NOTICE([openssl does not have QUIC interface, disabling it])
     have_openssl=no
@@ -208,11 +264,23 @@ AM_CONDITIONAL([HAVE_GNUTLS], [ test "x${have_gnutls}" = "xyes" ])
 # BoringSSL (required for libngtcp2_crypto_boringssl)
 have_boringssl=no
 if test "x${request_boringssl}" != "xno"; then
-  save_LDFLAGS="$LDFLAGS"
-  LDFLAGS="$LDFLAGS $BORINGSSL_LIBS"
-  AC_CHECK_LIB([ssl], [SSL_set_quic_early_data_context],
-               [have_boringssl=yes], [have_boringssl=no], [$BORINGSSL_LIBS])
-  LDFLAGS="$save_LDFLAGS"
+  save_CFLAGS="$CFLAGS"
+  save_LIBS="$LIBS"
+  CFLAGS="$BORINGSSL_CFLAGS"
+  LIBS="$BORINGSSL_LIBS $LIBS"
+
+  AC_MSG_CHECKING([for SSL_set_quic_early_data_context])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+    #include <openssl/ssl.h>
+  ]], [[
+    SSL *ssl = NULL;
+    SSL_set_quic_early_data_context(ssl, NULL, 0);
+  ]])],
+  [AC_MSG_RESULT([yes]); have_boringssl=yes],
+  [AC_MSG_RESULT([no]); have_boringssl=no])
+
+  CFLAGS="$save_CFLAGS"
+  LIBS="$save_LIBS"
 fi
 
 if test "x${request_boringssl}" = "xyes" &&
@@ -232,34 +300,46 @@ fi
 AM_CONDITIONAL([HAVE_CRYPTO], [ test "x${have_crypto}" = "xyes" ])
 
 # libnghttp3 (required for examples)
-PKG_CHECK_MODULES([LIBNGHTTP3], [libnghttp3 >= 0.0.0],
-                  [have_libnghttp3=yes], [have_libnghttp3=no])
-if test "${have_libnghttp3}" = "xno"; then
-  AC_MSG_NOTICE($LIBNGHTTP3_PKG_ERRORS)
+have_libnghttp3=no
+if test "x${request_libnghttp3}" != "xno"; then
+  PKG_CHECK_MODULES([LIBNGHTTP3], [libnghttp3 >= 0.0.0],
+                    [have_libnghttp3=yes], [have_libnghttp3=no])
+  if test "${have_libnghttp3}" = "xno"; then
+    AC_MSG_NOTICE($LIBNGHTTP3_PKG_ERRORS)
+  fi
 fi
+
+if test "x${request_libnghttp3}" = "xyes" &&
+   test "x${have_libnghttp3}" != "xyes"; then
+  AC_MSG_ERROR([libnghttp3 was requested (--with-libnghttp3) but not found])
+fi
+
 AM_CONDITIONAL([HAVE_NGHTTP3], [ test "x${have_libnghttp3}" = "xyes" ])
 
-AC_ARG_VAR([LIBEV_CFLAGS], [C compiler flags for libev, skipping any checks])
-AC_ARG_VAR([LIBEV_LIBS], [linker flags for libev, skipping any checks])
-
 # libev (required for examples)
-if test "x${LIBEV_LIBS}" = "x" && test "x${LIBEV_CFLAGS}" = "x"; then
-  # libev does not have pkg-config file.  Check it in an old way.
-  save_LIBS=$LIBS
-  # android requires -lm for floor
-  AC_CHECK_LIB([ev], [ev_time], [have_libev=yes], [have_libev=no], [-lm])
-  if test "x${have_libev}" = "xyes"; then
-    AC_CHECK_HEADER([ev.h], [have_libev=yes], [have_libev=no])
+have_libev=no
+if test "x${request_libev}" != "xno"; then
+  if test "x${LIBEV_LIBS}" = "x" && test "x${LIBEV_CFLAGS}" = "x"; then
+    # libev does not have pkg-config file.  Check it in an old way.
+    save_LIBS=$LIBS
+    # android requires -lm for floor
+    AC_CHECK_LIB([ev], [ev_time], [have_libev=yes], [have_libev=no], [-lm])
     if test "x${have_libev}" = "xyes"; then
-      LIBEV_LIBS=-lev
-      LIBEV_CFLAGS=
-      AC_SUBST([LIBEV_LIBS])
-      AC_SUBST([LIBEV_CFLAGS])
+      AC_CHECK_HEADER([ev.h], [have_libev=yes], [have_libev=no])
+      if test "x${have_libev}" = "xyes"; then
+        LIBEV_LIBS=-lev
+        LIBEV_CFLAGS=
+      fi
     fi
+    LIBS=$save_LIBS
+  else
+    have_libev=yes
   fi
-  LIBS=$save_LIBS
-else
-  have_libev=yes
+fi
+
+if test "x${request_libev}" = "xyes" &&
+   test "x${have_libev}" != "xyes"; then
+  AC_MSG_ERROR([libev was requested (--with-libev) but not found])
 fi
 
 enable_examples=no
@@ -290,9 +370,6 @@ AM_CONDITIONAL([ENABLE_EXAMPLE_OPENSSL], [ test "x${enable_examples}" = "xyes" &
 AM_CONDITIONAL([ENABLE_EXAMPLE_GNUTLS], [ test "x${enable_examples}" = "xyes" && test "x${have_gnutls}" = "xyes" ])
 AM_CONDITIONAL([ENABLE_EXAMPLE_BORINGSSL], [ test "x${enable_examples}" = "xyes" && test "x${have_boringssl}" = "xyes" ])
 
-AC_ARG_VAR([JEMALLOC_CFLAGS], [C compiler flags for jemalloc, skipping any checks])
-AC_ARG_VAR([JEMALLOC_LIBS], [linker flags for jemalloc, skipping any checks])
-
 # jemalloc
 have_jemalloc=no
 if test "x${request_jemalloc}" != "xno"; then
@@ -318,7 +395,6 @@ if test "x${request_jemalloc}" != "xno"; then
     if test "x${have_jemalloc}" = "xyes" &&
        test "x${jemalloc_libs}" != "xnone required"; then
       JEMALLOC_LIBS=${jemalloc_libs}
-      AC_SUBST([JEMALLOC_LIBS])
     fi
   else
     have_jemalloc=yes
@@ -329,9 +405,6 @@ if test "x${request_jemalloc}" = "xyes" &&
    test "x${have_jemalloc}" != "xyes"; then
   AC_MSG_ERROR([jemalloc was requested (--with-jemalloc) but not found])
 fi
-
-AC_ARG_VAR([LIBTOOL_LDFLAGS],
-           [libtool specific flags (e.g., -static-libtool-libs)])
 
 # Checks for header files.
 AC_CHECK_HEADERS([ \
@@ -544,7 +617,7 @@ AC_MSG_NOTICE([summary of build options:
       OpenSSL:        ${have_openssl} (CFLAGS='${OPENSSL_CFLAGS}' LIBS='${OPENSSL_LIBS}')
       Libev:          ${have_libev} (CFLAGS='${LIBEV_CFLAGS}' LIBS='${LIBEV_LIBS}')
       Libnghttp3:     ${have_libnghttp3} (CFLAGS='${LIBNGHTTP3_CFLAGS}' LIBS='${LIBNGHTTP3_LIBS}')
-      Jemalloc:       ${have_jemalloc} (LIBS='${JEMALLOC_LIBS}')
+      Jemalloc:       ${have_jemalloc} (CFLAGS='${JEMALLOC_CFLAGS}' LIBS='${JEMALLOC_LIBS}')
       GnuTLS:         ${have_gnutls} (CFLAGS='${GNUTLS_CFLAGS}' LIBS='${GNUTLS_LIBS}')
       BoringSSL:      ${have_boringssl} (CFLAGS='${BORINGSSL_CFLAGS}' LIBS='${BORINGSSL_LIBS}')
     Examples:         ${enable_examples}

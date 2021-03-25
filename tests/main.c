@@ -272,10 +272,16 @@ int main() {
                    test_ngtcp2_conn_write_application_close) ||
       !CU_add_test(pSuite, "conn_rtb_reclaim_on_pto",
                    test_ngtcp2_conn_rtb_reclaim_on_pto) ||
+      !CU_add_test(pSuite, "conn_rtb_reclaim_on_pto_datagram",
+                   test_ngtcp2_conn_rtb_reclaim_on_pto_datagram) ||
       !CU_add_test(pSuite, "conn_validate_ecn",
                    test_ngtcp2_conn_validate_ecn) ||
       !CU_add_test(pSuite, "conn_path_validation",
                    test_ngtcp2_conn_path_validation) ||
+      !CU_add_test(pSuite, "conn_early_data_sync_stream_data_limit",
+                   test_ngtcp2_conn_early_data_sync_stream_data_limit) ||
+      !CU_add_test(pSuite, "conn_early_data_rejected",
+                   test_ngtcp2_conn_early_data_rejected) ||
       !CU_add_test(pSuite, "pkt_write_connection_close",
                    test_ngtcp2_pkt_write_connection_close) ||
       !CU_add_test(pSuite, "map", test_ngtcp2_map) ||
@@ -296,8 +302,6 @@ int main() {
                    test_ngtcp2_strm_streamfrq_unacked_pop) ||
       !CU_add_test(pSuite, "pv_add_entry", test_ngtcp2_pv_add_entry) ||
       !CU_add_test(pSuite, "pv_validate", test_ngtcp2_pv_validate) ||
-      !CU_add_test(pSuite, "check_invalid_stateless_reset_token",
-                   test_ngtcp2_check_invalid_stateless_reset_token) ||
       !CU_add_test(pSuite, "encode_ipv4", test_ngtcp2_encode_ipv4) ||
       !CU_add_test(pSuite, "encode_ipv6", test_ngtcp2_encode_ipv6)) {
     CU_cleanup_registry();

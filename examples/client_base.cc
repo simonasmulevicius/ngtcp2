@@ -74,7 +74,10 @@ int ClientBase::write_transport_params(const char *path,
     << params->initial_max_stream_data_bidi_remote << '\n'
     << "initial_max_stream_data_uni=" << params->initial_max_stream_data_uni
     << '\n'
-    << "initial_max_data=" << params->initial_max_data << '\n';
+    << "initial_max_data=" << params->initial_max_data << '\n'
+    << "active_connection_id_limit=" << params->active_connection_id_limit
+    << '\n'
+    << "max_datagram_frame_size=" << params->max_datagram_frame_size << '\n';
 
   f.close();
   if (!f) {
@@ -93,27 +96,91 @@ int ClientBase::read_transport_params(const char *path,
 
   for (std::string line; std::getline(f, line);) {
     if (util::istarts_with_l(line, "initial_max_streams_bidi=")) {
-      params->initial_max_streams_bidi = strtoul(
-          line.c_str() + str_size("initial_max_streams_bidi="), nullptr, 10);
-    } else if (util::istarts_with_l(line, "initial_max_streams_uni=")) {
-      params->initial_max_streams_uni = strtoul(
-          line.c_str() + str_size("initial_max_streams_uni="), nullptr, 10);
-    } else if (util::istarts_with_l(line,
-                                    "initial_max_stream_data_bidi_local=")) {
-      params->initial_max_stream_data_bidi_local = strtoul(
-          line.c_str() + str_size("initial_max_stream_data_bidi_local="),
-          nullptr, 10);
-    } else if (util::istarts_with_l(line,
-                                    "initial_max_stream_data_bidi_remote=")) {
-      params->initial_max_stream_data_bidi_remote = strtoul(
-          line.c_str() + str_size("initial_max_stream_data_bidi_remote="),
-          nullptr, 10);
-    } else if (util::istarts_with_l(line, "initial_max_stream_data_uni=")) {
-      params->initial_max_stream_data_uni = strtoul(
-          line.c_str() + str_size("initial_max_stream_data_uni="), nullptr, 10);
-    } else if (util::istarts_with_l(line, "initial_max_data=")) {
-      params->initial_max_data =
-          strtoul(line.c_str() + str_size("initial_max_data="), nullptr, 10);
+      if (auto n = util::parse_uint(line.c_str() +
+                                    str_size("initial_max_streams_bidi="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_streams_bidi = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "initial_max_streams_uni=")) {
+      if (auto n = util::parse_uint(line.c_str() +
+                                    str_size("initial_max_streams_uni="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_streams_uni = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "initial_max_stream_data_bidi_local=")) {
+      if (auto n = util::parse_uint(
+              line.c_str() + str_size("initial_max_stream_data_bidi_local="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_stream_data_bidi_local = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "initial_max_stream_data_bidi_remote=")) {
+      if (auto n = util::parse_uint(
+              line.c_str() + str_size("initial_max_stream_data_bidi_remote="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_stream_data_bidi_remote = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "initial_max_stream_data_uni=")) {
+      if (auto n = util::parse_uint(line.c_str() +
+                                    str_size("initial_max_stream_data_uni="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_stream_data_uni = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "initial_max_data=")) {
+      if (auto n =
+              util::parse_uint(line.c_str() + str_size("initial_max_data="));
+          !n) {
+        return -1;
+      } else {
+        params->initial_max_data = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "active_connection_id_limit=")) {
+      if (auto n = util::parse_uint(line.c_str() +
+                                    str_size("active_connection_id_limit="));
+          !n) {
+        return -1;
+      } else {
+        params->active_connection_id_limit = *n;
+      }
+      continue;
+    }
+
+    if (util::istarts_with_l(line, "max_datagram_frame_size=")) {
+      if (auto n = util::parse_uint(line.c_str() +
+                                    str_size("max_datagram_frame_size="));
+          !n) {
+        return -1;
+      } else {
+        params->max_datagram_frame_size = *n;
+      }
+      continue;
     }
   }
 
@@ -189,21 +256,7 @@ int ClientBase::on_tx_key(ngtcp2_crypto_level level, const uint8_t *secret,
   auto aead = &crypto_ctx->aead;
   auto keylen = ngtcp2_crypto_aead_keylen(aead);
   auto ivlen = ngtcp2_crypto_packet_protection_ivlen(aead);
-
-  const char *title = nullptr;
-  switch (level) {
-  case NGTCP2_CRYPTO_LEVEL_EARLY:
-    title = "early_traffic";
-    break;
-  case NGTCP2_CRYPTO_LEVEL_HANDSHAKE:
-    title = "handshake_traffic";
-    break;
-  case NGTCP2_CRYPTO_LEVEL_APPLICATION:
-    title = "application_traffic";
-    break;
-  default:
-    assert(0);
-  }
+  auto title = debug::secret_title(level);
 
   if (!config.quiet && config.show_secret) {
     std::cerr << title << " tx secret" << std::endl;
