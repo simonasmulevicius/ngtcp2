@@ -280,6 +280,65 @@ int ngtcp2_crypto_encrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
   return 0;
 }
 
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
+                                  const ngtcp2_crypto_aead *aead,
+                                  const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
+                                  const uint8_t *plaintext, 
+                                  size_t plaintextlen,
+                                  __attribute__((unused)) const uint8_t *nonce, 
+                                  __attribute__((unused)) size_t noncelen,
+                                  __attribute__((unused)) const uint8_t *ad, 
+                                  __attribute__((unused)) size_t adlen) {
+    size_t taglen;
+    
+    printf(" ---------------------------------------\n");
+    printf(" [ Payload encryption is turned   OFF  ]\n");
+    printf(" ---------------------------------------\n");
+
+    printf(" ------------------------------  \n");
+    printf(" Using ngtcp2_crypto_encrypt     \n");
+    printf("\n");
+    printf("plaintextlen: %lu                 \n", plaintextlen);
+    printf("\n");
+    printf("plaintext:                       \n");
+    printf(" ------------------------------  \n");
+    fwrite(plaintext, plaintextlen, 1, stdout);
+    printf("\n");
+    printf(" ------------------------------  \n");
+    for (size_t i=0; i<plaintextlen; i++){
+       printf(" plaintext[%ld]: %d \n", i, plaintext[i]);
+    }
+    printf(" ----------------------------  \n");
+
+
+    
+    printf("Before memcpy dest:\n");
+    for (size_t i=0; i<plaintextlen; i++){
+       printf(" dest[%ld]: %d \n", i, dest[i]);
+    }
+    memcpy(dest, plaintext, plaintextlen);
+    printf("After memcpy dest:\n");
+    for (size_t i=0; i<plaintextlen; i++){
+       printf(" dest[%ld]: %d \n", i, dest[i]);
+    }
+    
+    /// add padding of 0s
+    taglen = aead->max_overhead;  
+    printf(" taglen: %ld  \n", taglen);
+
+    
+    for (size_t i=0; i<taglen; i++){
+        dest[plaintextlen+i] = 0;
+    }
+    
+    printf("\n");
+    printf(" ------------------------------  \n");
+
+  return 0;
+}
+
 int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                           const ngtcp2_crypto_aead_ctx *aead_ctx,
                           const uint8_t *ciphertext, size_t ciphertextlen,
@@ -304,6 +363,39 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
   }
 
   return 0;
+}
+
+// 2021, January
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+                                  const ngtcp2_crypto_aead *aead,
+                                  __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                  const uint8_t *ciphertext, 
+                                  size_t ciphertextlen,
+                                  __attribute__((unused)) const uint8_t *nonce, 
+                                  __attribute__((unused)) size_t noncelen,
+                                  __attribute__((unused)) const uint8_t *ad, 
+                                  __attribute__((unused)) size_t adlen) {
+    size_t taglen;
+    printf(" ---------------------------------------\n");
+    printf(" [ Payload encryption is turned   OFF  ]\n");
+    printf(" ---------------------------------------\n");
+
+    printf(" ------------------------------  \n");
+    printf(" Using ngtcp2_crypto_decrypt_unsecure     \n");
+    
+    // ignore padding of 0s
+    taglen = aead->max_overhead;  
+    printf(" taglen: %ld  \n", taglen);
+    
+    for (size_t i=0; i<ciphertextlen-taglen; i++){
+        dest[i] = ciphertext[i];
+    }
+    
+    printf("\n");
+    printf(" ------------------------------  \n");
+    
+    return 0;
 }
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
