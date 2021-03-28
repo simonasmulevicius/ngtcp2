@@ -534,53 +534,6 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 } // namespace
 
 
-//
-// 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-//
-namespace {
-int ngtcp2_crypto_encrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-                             const ngtcp2_crypto_aead_ctx *aead_ctx,
-                             const uint8_t *plaintext, size_t plaintextlen,
-                             const uint8_t *nonce, size_t noncelen,
-                             const uint8_t *ad, size_t adlen) {
-  if (!config.noencryption){
-    return ngtcp2_crypto_encrypt_cb(dest, aead, aead_ctx, 
-      plaintext, plaintextlen, nonce, noncelen, ad, adlen);
-  }
-  
-  
-  if (ngtcp2_crypto_encrypt_unsecure(dest, aead, aead_ctx, plaintext, plaintextlen,
-                            nonce, noncelen, ad, adlen) != 0) {
-    return NGTCP2_ERR_CALLBACK_FAILURE;
-  }
-  return 0;
-}
-} // namespace
-
-//
-// 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-//
-namespace {
-int ngtcp2_crypto_decrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-                             const ngtcp2_crypto_aead_ctx *aead_ctx,
-                             const uint8_t *ciphertext, size_t ciphertextlen,
-                             const uint8_t *nonce, size_t noncelen,
-                             const uint8_t *ad, size_t adlen) {
-  if (!config.noencryption){
-    return ngtcp2_crypto_decrypt_cb(dest, aead, aead_ctx, 
-      ciphertext, ciphertextlen, nonce, noncelen, ad, adlen);
-  }
-
-  if (ngtcp2_crypto_decrypt_unsecure(dest, aead, aead_ctx, ciphertext, ciphertextlen,
-                            nonce, noncelen, ad, adlen) != 0) {
-    return NGTCP2_ERR_TLS_DECRYPT;
-  }
-  return 0;
-}
-} // namespace
-
 
 namespace {
 int update_key(ngtcp2_conn *conn, uint8_t *rx_secret, uint8_t *tx_secret,
@@ -707,8 +660,8 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
       ::recv_crypto_data,
       ::handshake_completed,
       nullptr, // recv_version_negotiation
-      ngtcp2_crypto_encrypt_unsecure_cb,
-      ngtcp2_crypto_decrypt_unsecure_cb,
+      ngtcp2_crypto_encrypt_cb,
+      ngtcp2_crypto_decrypt_cb,
       do_hp_mask,
       ::recv_stream_data,
       acked_crypto_offset,
@@ -738,6 +691,46 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
       nullptr, // ack_datagram
       nullptr, // lost_datagram
   };
+
+  if (config.noencryption){
+    callbacks = ngtcp2_callbacks{
+          ngtcp2_crypto_client_initial_cb,
+          nullptr, // recv_client_initial
+          ::recv_crypto_data,
+          ::handshake_completed,
+          nullptr, // recv_version_negotiation
+          ngtcp2_crypto_encrypt_unsecure_cb,
+          ngtcp2_crypto_decrypt_unsecure_cb,
+          do_hp_mask,
+          ::recv_stream_data,
+          acked_crypto_offset,
+          ::acked_stream_data_offset,
+          nullptr, // stream_open
+          stream_close,
+          nullptr, // recv_stateless_reset
+          ngtcp2_crypto_recv_retry_cb,
+          extend_max_streams_bidi,
+          nullptr, // extend_max_streams_uni
+          rand,
+          get_new_connection_id,
+          remove_connection_id,
+          ::update_key,
+          path_validation,
+          ::select_preferred_address,
+          stream_reset,
+          nullptr, // extend_max_remote_streams_bidi,
+          nullptr, // extend_max_remote_streams_uni,
+          ::extend_max_stream_data,
+          nullptr, // dcid_status
+          ::handshake_confirmed,
+          ::recv_new_token,
+          ngtcp2_crypto_delete_crypto_aead_ctx_cb,
+          ngtcp2_crypto_delete_crypto_cipher_ctx_cb,
+          nullptr, // recv_datagram
+          nullptr, // ack_datagram
+          nullptr, // lost_datagram
+      };
+  }
 
   auto dis = std::uniform_int_distribution<uint8_t>(
       0, std::numeric_limits<uint8_t>::max());
