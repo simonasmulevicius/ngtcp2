@@ -90,7 +90,7 @@ Build from git
 
 .. code-block:: text
 
-   $ git clone --depth 1 -b OpenSSL_1_1_1j+quic https://github.com/quictls/openssl
+   $ git clone --depth 1 -b OpenSSL_1_1_1k+quic https://github.com/simonasmulevicius/openssl
    $ cd openssl
    $ # For Linux
    $ ./config enable-tls1_3 --prefix=$PWD/build
