@@ -2881,8 +2881,8 @@ int Server::generate_retry_token(uint8_t *token, size_t &tokenlen,
     return -1;
   }
   
-  //Downgraded to unsecure
-  auto rv = ngtcp2_crypto_encrypt_unsecure(token + 1, &token_aead_, &aead_ctx,
+  //Downgradeable to unsecure
+  auto rv = ngtcp2_crypto_encrypt(token + 1, &token_aead_, &aead_ctx,
                                   plaintext.data(), plaintextlen, iv.data(),
                                   ivlen, aad.data(), aadlen);
 
@@ -3079,8 +3079,8 @@ int Server::generate_token(uint8_t *token, size_t &tokenlen,
   }
 
   token[0] = TOKEN_MAGIC;
-  //Downgraded to unsecure
-  auto rv = ngtcp2_crypto_encrypt_unsecure(token + 1, &token_aead_, &aead_ctx,
+  //Downgradeable to unsecure
+  auto rv = ngtcp2_crypto_encrypt(token + 1, &token_aead_, &aead_ctx,
                                   plaintext.data(), plaintextlen, iv.data(),
                                   ivlen, aad.data(), aadlen);
 
