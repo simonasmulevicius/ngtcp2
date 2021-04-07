@@ -414,6 +414,18 @@ NGTCP2_EXTERN int ngtcp2_crypto_hp_mask(uint8_t *dest,
 /**
  * @function
  *
+ * `ngtcp2_crypto_hp_mask_unsecure` is unsecure version 
+ *  of `ngtcp2_crypto_hp_mask` and this implementation
+ *  doesn't encrypt data.
+ */
+NGTCP2_EXTERN int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest,
+                                        const ngtcp2_crypto_cipher *hp,
+                                        const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                                        const uint8_t *sample);
+
+/**
+ * @function
+ *
  * `ngtcp2_crypto_hp_mask_cb` is a wrapper function around
  * `ngtcp2_crypto_hp_mask`.  It can be directly passed to
  * :member:`ngtcp2_callbacks.hp_mask` field.
@@ -423,6 +435,18 @@ NGTCP2_EXTERN int ngtcp2_crypto_hp_mask(uint8_t *dest,
  */
 NGTCP2_EXTERN int
 ngtcp2_crypto_hp_mask_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+                         const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                         const uint8_t *sample);
+
+/**
+ * @function
+ *
+ * `ngtcp2_crypto_hp_mask_unsecure_cb` is unsecure version 
+ *  of `ngtcp2_crypto_hp_mask_cb` and this implementation
+ *  doesn't encrypt data.
+ */
+NGTCP2_EXTERN int
+ngtcp2_crypto_hp_mask_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                          const ngtcp2_crypto_cipher_ctx *hp_ctx,
                          const uint8_t *sample);
 

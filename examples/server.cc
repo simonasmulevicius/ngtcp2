@@ -772,27 +772,14 @@ int Handler::handshake_completed() {
   return 0;
 }
 
-//
 // 2021, January
 // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-//
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-    
-  if (config.noencryption){
-    printf(" --------------------------------\n");
-    printf(" [ Encryption is turned    OFF  ]\n");
-    printf(" --------------------------------\n");
-
-    //write to dest NGTCP2_HP_MASKLEN number of 0s
-    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
-    return 0;
-  } 
-    
-  printf(" --------------------------------\n");
-  printf(" [ Encryption is turned    ON   ]\n");
-  printf(" --------------------------------\n");
+  printf(" ---------------------------------\n");
+  printf(" [Header encryption is turned ON ]\n");
+  printf(" ---------------------------------\n");
     
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
     return NGTCP2_ERR_CALLBACK_FAILURE;
@@ -806,52 +793,21 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 }
 } // namespace
 
-// //
-// // 2021, January
-// // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-// //
-// namespace {
-// int ngtcp2_crypto_encrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-//                              const ngtcp2_crypto_aead_ctx *aead_ctx,
-//                              const uint8_t *plaintext, size_t plaintextlen,
-//                              const uint8_t *nonce, size_t noncelen,
-//                              const uint8_t *ad, size_t adlen) {
-//   if (!config.noencryption){
-//     return ngtcp2_crypto_encrypt_cb(dest, aead, aead_ctx, 
-//       plaintext, plaintextlen, nonce, noncelen, ad, adlen);
-//   }
-  
-  
-//   if (ngtcp2_crypto_encrypt_unsecure(dest, aead, aead_ctx, plaintext, plaintextlen,
-//                             nonce, noncelen, ad, adlen) != 0) {
-//     return NGTCP2_ERR_CALLBACK_FAILURE;
-//   }
-//   return 0;
-// }
-// } // namespace
+// 2021, April
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+namespace {
+int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+               const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
+  printf(" ----------------------------------\n");
+  printf(" [Header encryption is turned OFF ]\n");
+  printf(" ----------------------------------\n");
 
-// //
-// // 2021, January
-// // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-// //
-// namespace {
-// int ngtcp2_crypto_decrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-//                              const ngtcp2_crypto_aead_ctx *aead_ctx,
-//                              const uint8_t *ciphertext, size_t ciphertextlen,
-//                              const uint8_t *nonce, size_t noncelen,
-//                              const uint8_t *ad, size_t adlen) {
-//   if (!config.noencryption){
-//     return ngtcp2_crypto_decrypt_cb(dest, aead, aead_ctx, 
-//       ciphertext, ciphertextlen, nonce, noncelen, ad, adlen);
-//   }
+  //write to dest NGTCP2_HP_MASKLEN number of 0s
+  memset(dest,0,NGTCP2_HP_MASKLEN);
+  return 0;
 
-//   if (ngtcp2_crypto_decrypt_unsecure(dest, aead, aead_ctx, ciphertext, ciphertextlen,
-//                             nonce, noncelen, ad, adlen) != 0) {
-//     return NGTCP2_ERR_TLS_DECRYPT;
-//   }
-//   return 0;
-// }
-// } // namespace
+}
+} // namespace
 
 namespace {
 int recv_crypto_data(ngtcp2_conn *conn, ngtcp2_crypto_level crypto_level,
@@ -1514,6 +1470,7 @@ int Handler::init(const Endpoint &ep, const Address &local_addr,
     }
   }
 
+  printf("Encryption is turned on");
   auto callbacks = ngtcp2_callbacks{
       nullptr, // client_initial
       ngtcp2_crypto_recv_client_initial_cb,
@@ -1552,9 +1509,8 @@ int Handler::init(const Endpoint &ep, const Address &local_addr,
       nullptr, // lost_datagram
   };
 
-
-
   if (config.noencryption){
+    printf("WARNING! Using Null-encryption");
     callbacks = ngtcp2_callbacks{
       nullptr, // client_initial
       ngtcp2_crypto_recv_client_initial_cb,
@@ -1563,7 +1519,7 @@ int Handler::init(const Endpoint &ep, const Address &local_addr,
       nullptr, // recv_version_negotiation
       ngtcp2_crypto_encrypt_unsecure_cb,
       ngtcp2_crypto_decrypt_unsecure_cb,
-      do_hp_mask,
+      do_hp_mask_unsecure,
       ::recv_stream_data,
       acked_crypto_offset,
       ::acked_stream_data_offset,
@@ -3468,6 +3424,10 @@ Options:
             << util::format_duration(config.timeout) << R"(
   -V, --validate-addr
               Perform address validation.
+  -P, plaintext-encryption
+            Plaintext mode (Null encryption). 
+            Only to be used in development!
+            Both client and server have to set this flag.
   --preferred-ipv4-addr=<ADDR>:<PORT>
               Specify preferred IPv4 address and port.
   --preferred-ipv6-addr=<ADDR>:<PORT>
@@ -3556,12 +3516,7 @@ Options:
               single GSO sendmsg call.
               Default: )"
             << config.max_gso_dgrams << R"(
-  -h, --help  Display this help and exit.
-
-  -P          Plaintext mode (No encryption). 
-              Only to be used in development!
-              Both client and server have to set this flag.
-          
+  -h, --help  Display this help and exit.          
 ---
 
   The <SIZE> argument is an integer and an optional unit (e.g., 10K is
@@ -3597,6 +3552,7 @@ int main(int argc, char **argv) {
         {"quiet", no_argument, nullptr, 'q'},
         {"show-secret", no_argument, nullptr, 's'},
         {"validate-addr", no_argument, nullptr, 'V'},
+        {"plaintext-encryption", no_argument, nullptr, 'P'},
         {"ciphers", required_argument, &flag, 1},
         {"groups", required_argument, &flag, 2},
         {"timeout", required_argument, &flag, 3},
@@ -3671,7 +3627,7 @@ int main(int argc, char **argv) {
     // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
     //    
     case 'P':
-      // No encryption (Plaintext mode)
+      // Null encryption (Plaintext mode)
       config.noencryption = true;
       break;
       

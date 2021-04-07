@@ -499,24 +499,11 @@ int remove_connection_id(ngtcp2_conn *conn, const ngtcp2_cid *cid,
 }
 } // namespace
 
-//
 // 2021, January
 // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-//
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-
-  if (config.noencryption){
-    printf(" ---------------------------------------\n");
-    printf(" [ Header encryption is turned    OFF  ]\n");
-    printf(" ---------------------------------------\n");
-
-    //write to dest NGTCP2_HP_MASKLEN number of 0s
-    std::fill_n(dest, NGTCP2_HP_MASKLEN, 0);
-    return 0;
-  }  
-  
   printf(" ---------------------------------------\n");
   printf(" [ Header encryption is turned    ON   ]\n");
   printf(" ---------------------------------------\n");
@@ -529,6 +516,21 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
     debug::print_hp_mask(dest, NGTCP2_HP_MASKLEN, sample, NGTCP2_HP_SAMPLELEN);
   }
 
+  return 0;
+}
+} // namespace
+
+// 2021, April
+// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+namespace {
+int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+               const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
+  printf(" ---------------------------------------\n");
+  printf(" [ Header encryption is turned    OFF  ]\n");
+  printf(" ---------------------------------------\n");
+
+  //write to dest NGTCP2_HP_MASKLEN number of 0s
+  memset(dest,0,NGTCP2_HP_MASKLEN);
   return 0;
 }
 } // namespace
@@ -654,6 +656,7 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
     return -1;
   }
 
+  printf("Encryption is turned on");
   auto callbacks = ngtcp2_callbacks{
       ngtcp2_crypto_client_initial_cb,
       nullptr, // recv_client_initial
@@ -693,6 +696,7 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
   };
 
   if (config.noencryption){
+    printf("WARNING! Using Null-encryption");
     callbacks = ngtcp2_callbacks{
           ngtcp2_crypto_client_initial_cb,
           nullptr, // recv_client_initial
@@ -701,7 +705,7 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
           nullptr, // recv_version_negotiation
           ngtcp2_crypto_encrypt_unsecure_cb,
           ngtcp2_crypto_decrypt_unsecure_cb,
-          do_hp_mask,
+          do_hp_mask_unsecure,
           ::recv_stream_data,
           acked_crypto_offset,
           ::acked_stream_data_offset,
