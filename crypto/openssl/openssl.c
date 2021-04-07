@@ -457,9 +457,10 @@ int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 
 // 2021, April
 // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
-                          const ngtcp2_crypto_cipher_ctx *hp_ctx,
-                          const uint8_t *sample) {
+int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
+                          __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
+                          __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                          __attribute__((unused)) const uint8_t *sample) {
 
   //set fixed length mask of zeroes
   memset(dest,0,5);
