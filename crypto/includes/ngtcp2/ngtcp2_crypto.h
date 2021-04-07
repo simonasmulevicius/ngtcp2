@@ -433,8 +433,7 @@ NGTCP2_EXTERN int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest,
  * This function returns 0 if it succeeds, or
  * :macro:`NGTCP2_ERR_CALLBACK_FAILURE`.
  */
-NGTCP2_EXTERN int
-ngtcp2_crypto_hp_mask_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+NGTCP2_EXTERN int ngtcp2_crypto_hp_mask_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                          const ngtcp2_crypto_cipher_ctx *hp_ctx,
                          const uint8_t *sample);
 
@@ -445,8 +444,7 @@ ngtcp2_crypto_hp_mask_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
  *  of `ngtcp2_crypto_hp_mask_cb` and this implementation
  *  doesn't encrypt data.
  */
-NGTCP2_EXTERN int
-ngtcp2_crypto_hp_mask_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+NGTCP2_EXTERN int ngtcp2_crypto_hp_mask_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                          const ngtcp2_crypto_cipher_ctx *hp_ctx,
                          const uint8_t *sample);
 
