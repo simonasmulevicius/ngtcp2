@@ -777,9 +777,9 @@ int Handler::handshake_completed() {
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-  printf(" ---------------------------------\n");
-  printf(" [Header encryption is turned ON ]\n");
-  printf(" ---------------------------------\n");
+  // printf(" ---------------------------------\n");
+  // printf(" [Header encryption is turned ON ]\n");
+  // printf(" ---------------------------------\n");
     
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
     return NGTCP2_ERR_CALLBACK_FAILURE;
@@ -798,9 +798,9 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 namespace {
 int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-  printf(" ----------------------------------\n");
-  printf(" [Header encryption is turned OFF ]\n");
-  printf(" ----------------------------------\n");
+  // printf(" ----------------------------------\n");
+  // printf(" [Header encryption is turned OFF ]\n");
+  // printf(" ----------------------------------\n");
 
   //write to dest NGTCP2_HP_MASKLEN number of 0s
   memset(dest,0,NGTCP2_HP_MASKLEN);

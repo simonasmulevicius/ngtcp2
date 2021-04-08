@@ -360,18 +360,18 @@ int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest,
                                   __attribute__((unused)) size_t noncelen,
                                   __attribute__((unused)) const uint8_t *ad, 
                                   __attribute__((unused)) size_t adlen) {
-    size_t taglen;
-    
-    printf(" ---------------------------------------\n");
-    printf(" [ Payload encryption is turned   OFF  ]\n");
-    printf(" ---------------------------------------\n");
+  size_t taglen;
+  
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Payload encryption is turned   OFF  ]\n");
+  // printf(" ---------------------------------------\n");
 
-    memcpy(dest, plaintext, plaintextlen);
+  memcpy(dest, plaintext, plaintextlen);
 
-    
-    /// add padding of 0s
-    taglen = aead->max_overhead;  
-    memset(dest+plaintextlen,0,taglen);
+  
+  /// add padding of 0s
+  taglen = aead->max_overhead;  
+  memset(dest+plaintextlen,0,taglen);
   return 0;
 }
 
@@ -424,9 +424,9 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
                                   __attribute__((unused)) const uint8_t *ad, 
                                   __attribute__((unused)) size_t adlen) {
     size_t taglen = aead->max_overhead;  
-    printf(" ---------------------------------------\n");
-    printf(" [ Payload encryption is turned   OFF  ]\n");
-    printf(" ---------------------------------------\n");
+    // printf(" ---------------------------------------\n");
+    // printf(" [ Payload encryption is turned   OFF  ]\n");
+    // printf(" ---------------------------------------\n");
     // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
     memcpy(dest, ciphertext, ciphertextlen-taglen);
 
