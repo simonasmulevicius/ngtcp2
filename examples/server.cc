@@ -1509,7 +1509,7 @@ int Handler::init(const Endpoint &ep, const Address &local_addr,
   };
 
   if (config.noencryption){
-    printf("WARNING! Using Null-encryption");
+    printf("WARNING! Using Null-encryption\n");
     callbacks = ngtcp2_callbacks{
       nullptr, // client_initial
       ngtcp2_crypto_recv_client_initial_cb,

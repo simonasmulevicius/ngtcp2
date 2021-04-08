@@ -695,7 +695,7 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
   };
 
   if (config.noencryption){
-    printf("WARNING! Using Null-encryption");
+    printf("WARNING! Using Null-encryption\n");
     callbacks = ngtcp2_callbacks{
           ngtcp2_crypto_client_initial_cb,
           nullptr, // recv_client_initial

@@ -413,6 +413,7 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
     memcpy(dest, ciphertext, ciphertextlen-taglen);
 
     return 0;
+}
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,
