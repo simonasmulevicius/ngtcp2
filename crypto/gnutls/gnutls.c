@@ -380,7 +380,6 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
     printf(" ---------------------------------------\n");
     printf(" [ Payload encryption is turned   OFF  ]\n");
     printf(" ---------------------------------------\n");
-    assert(ciphertextlen-taglen >= 0);
     // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
     memcpy(dest, ciphertext, ciphertextlen-taglen);
 

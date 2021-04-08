@@ -405,27 +405,14 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
                                   __attribute__((unused)) size_t noncelen,
                                   __attribute__((unused)) const uint8_t *ad, 
                                   __attribute__((unused)) size_t adlen) {
-    size_t taglen;
-    // printf(" ---------------------------------------\n");
-    // printf(" [ Payload encryption is turned   OFF  ]\n");
-    // printf(" ---------------------------------------\n");
+    size_t taglen = aead->max_overhead;  
+    printf(" ---------------------------------------\n");
+    printf(" [ Payload encryption is turned   OFF  ]\n");
+    printf(" ---------------------------------------\n");
+    // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
+    memcpy(dest, ciphertext, ciphertextlen-taglen);
 
-    // printf(" ------------------------------  \n");
-    // printf(" Using ngtcp2_crypto_decrypt_unsecure     \n");
-    
-    // ignore padding of 0s
-    taglen = aead->max_overhead;  
-    // printf(" taglen: %ld  \n", taglen);
-    
-    for (size_t i=0; i<ciphertextlen-taglen; i++){
-        dest[i] = ciphertext[i];
-    }
-    
-    // printf("\n");
-    // printf(" ------------------------------  \n");
-    
     return 0;
-}
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,

@@ -1470,7 +1470,6 @@ int Handler::init(const Endpoint &ep, const Address &local_addr,
     }
   }
 
-  printf("Encryption is turned on");
   auto callbacks = ngtcp2_callbacks{
       nullptr, // client_initial
       ngtcp2_crypto_recv_client_initial_cb,

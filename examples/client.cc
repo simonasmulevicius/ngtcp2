@@ -656,7 +656,6 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
     return -1;
   }
 
-  printf("Encryption is turned on");
   auto callbacks = ngtcp2_callbacks{
       ngtcp2_crypto_client_initial_cb,
       nullptr, // recv_client_initial
