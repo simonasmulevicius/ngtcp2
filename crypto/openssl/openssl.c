@@ -353,7 +353,7 @@ int ngtcp2_crypto_encrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
 int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
                                   const ngtcp2_crypto_aead *aead,
-                                  const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
+                                  __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
                                   const uint8_t *plaintext, 
                                   size_t plaintextlen,
                                   __attribute__((unused)) const uint8_t *nonce, 
@@ -367,10 +367,8 @@ int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest,
   // printf(" ---------------------------------------\n");
 
   memcpy(dest, plaintext, plaintextlen);
-
-  
-  /// add padding of 0s
-  taglen = aead->max_overhead;  
+  taglen = aead->max_overhead; 
+  /// add padding of 0s 
   memset(dest+plaintextlen,0,taglen);
   return 0;
 }
@@ -428,6 +426,7 @@ int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest,
     // printf(" [ Payload encryption is turned   OFF  ]\n");
     // printf(" ---------------------------------------\n");
     // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
+    assert(ciphertextlen-taglen >= 0);
     memcpy(dest, ciphertext, ciphertextlen-taglen);
 
     return 0;
