@@ -31,6 +31,10 @@
 #include "ngtcp2_conv.h"
 #include "ngtcp2_test_helper.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>  // According to https://stackoverflow.com/questions/56248526/unknown-type-name-uint64-t-and-uint16-t-uint8-t-in-linux
+
 static size_t varint_paramlen(ngtcp2_transport_param_id id, uint64_t value) {
   size_t valuelen = ngtcp2_put_varint_len(value);
   return ngtcp2_put_varint_len(id) + ngtcp2_put_varint_len(valuelen) + valuelen;
@@ -392,19 +396,23 @@ void test_ngtcp2_encode_transport_params(void) {
 void test_openssl_back_to_back_null_crypto(void) {
     const uint8_t senders_plaintext[] = "This is a sample plaintext";
     size_t senders_plaintext_len = sizeof(senders_plaintext);
-    uint8_t intermediate_text[senders_plaintext_len + NGTCP2_FAKE_AEAD_OVERHEAD];
+    size_t intermediate_text_len = senders_plaintext_len + NGTCP2_FAKE_AEAD_OVERHEAD;
+    uint8_t *intermediate_text = (uint8_t*)calloc(intermediate_text_len, sizeof(uint8_t)); 
+    
+    CU_ASSERT(NULL != intermediate_text);
+
     CU_ASSERT(ngtcp2_crypto_encrypt_unsecure_mock(intermediate_text, NULL, NULL, 
         senders_plaintext, senders_plaintext_len, NULL, 0, NULL, 0) == 0);
 
-    size_t intermediate_text_len = sizeof(intermediate_text);
+    
     uint8_t receivers_plaintext[senders_plaintext_len];
     CU_ASSERT(ngtcp2_crypto_decrypt_unsecure_mock(receivers_plaintext, NULL, NULL, 
         intermediate_text, intermediate_text_len, NULL, 0, NULL, 0) == 0);
-    size_t receivers_plaintext_len = sizeof(receivers_plaintext);
-
-    // Assert that sender's plaintext is equal to the receiver's plaintext 
-    CU_ASSERT(senders_plaintext_len==receivers_plaintext_len);
-    for(int i=0; i<senders_plaintext_len; i++){
+    
+    for(size_t i=0; i<senders_plaintext_len; i++){
         CU_ASSERT(senders_plaintext[i] == receivers_plaintext[i]);
     }
+
+    CU_ASSERT(NULL != intermediate_text);
+    free(intermediate_text);
 }
