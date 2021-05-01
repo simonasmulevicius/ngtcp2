@@ -386,3 +386,25 @@ void test_ngtcp2_encode_transport_params(void) {
             nparams.active_connection_id_limit);
   CU_ASSERT(params.max_datagram_frame_size == nparams.max_datagram_frame_size);
 }
+
+// 2021, April
+// Added by Candidate Number:2439D
+void test_openssl_back_to_back_null_crypto(void) {
+    const uint8_t senders_plaintext[] = "This is a sample plaintext";
+    size_t senders_plaintext_len = sizeof(senders_plaintext);
+    uint8_t intermediate_text[senders_plaintext_len + NGTCP2_FAKE_AEAD_OVERHEAD];
+    CU_ASSERT(ngtcp2_crypto_encrypt_unsecure_mock(intermediate_text, NULL, NULL, 
+        senders_plaintext, senders_plaintext_len, NULL, 0, NULL, 0) == 0);
+
+    size_t intermediate_text_len = sizeof(intermediate_text);
+    uint8_t receivers_plaintext[senders_plaintext_len];
+    CU_ASSERT(ngtcp2_crypto_decrypt_unsecure_mock(receivers_plaintext, NULL, NULL, 
+        intermediate_text, intermediate_text_len, NULL, 0, NULL, 0) == 0);
+    size_t receivers_plaintext_len = sizeof(receivers_plaintext);
+
+    // Assert that sender's plaintext is equal to the receiver's plaintext 
+    CU_ASSERT(senders_plaintext_len==receivers_plaintext_len);
+    for(int i=0; i<senders_plaintext_len; i++){
+        CU_ASSERT(senders_plaintext[i] == receivers_plaintext[i]);
+    }
+}

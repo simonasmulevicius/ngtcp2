@@ -31,4 +31,6 @@
 
 void test_ngtcp2_encode_transport_params(void);
 
+void test_openssl_back_to_back_null_crypto(void);
+
 #endif /* NGTCP2_CRYPTO_TEST_H */

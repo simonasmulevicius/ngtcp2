@@ -168,6 +168,8 @@ int main() {
       !CU_add_test(pSuite, "acktr_recv_ack", test_ngtcp2_acktr_recv_ack) ||
       !CU_add_test(pSuite, "encode_transport_params",
                    test_ngtcp2_encode_transport_params) ||
+      !CU_add_test(pSuite, "back_to_back_null_crypto",
+                   test_openssl_back_to_back_null_crypto) ||
       !CU_add_test(pSuite, "rtb_add", test_ngtcp2_rtb_add) ||
       !CU_add_test(pSuite, "rtb_recv_ack", test_ngtcp2_rtb_recv_ack) ||
       !CU_add_test(pSuite, "rtb_lost_pkt_ts", test_ngtcp2_rtb_lost_pkt_ts) ||
