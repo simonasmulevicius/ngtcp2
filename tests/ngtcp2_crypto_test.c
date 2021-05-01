@@ -397,15 +397,17 @@ void test_openssl_back_to_back_null_crypto(void) {
     const uint8_t senders_plaintext[] = "This is a sample plaintext";
     size_t senders_plaintext_len = sizeof(senders_plaintext);
     size_t intermediate_text_len = senders_plaintext_len + NGTCP2_FAKE_AEAD_OVERHEAD;
-    uint8_t *intermediate_text = (uint8_t*)calloc(intermediate_text_len, sizeof(uint8_t)); 
-    
+    uint8_t *intermediate_text   = (uint8_t*)calloc(intermediate_text_len, sizeof(uint8_t)); 
+    uint8_t *receivers_plaintext = (uint8_t*)calloc(senders_plaintext_len, sizeof(uint8_t)); 
+
     CU_ASSERT(NULL != intermediate_text);
+    CU_ASSERT(NULL != receivers_plaintext);
 
     CU_ASSERT(ngtcp2_crypto_encrypt_unsecure_mock(intermediate_text, NULL, NULL, 
         senders_plaintext, senders_plaintext_len, NULL, 0, NULL, 0) == 0);
 
     
-    uint8_t receivers_plaintext[senders_plaintext_len];
+
     CU_ASSERT(ngtcp2_crypto_decrypt_unsecure_mock(receivers_plaintext, NULL, NULL, 
         intermediate_text, intermediate_text_len, NULL, 0, NULL, 0) == 0);
     
@@ -415,4 +417,6 @@ void test_openssl_back_to_back_null_crypto(void) {
 
     CU_ASSERT(NULL != intermediate_text);
     free(intermediate_text);
+    CU_ASSERT(NULL != receivers_plaintext);
+    free(receivers_plaintext);
 }
