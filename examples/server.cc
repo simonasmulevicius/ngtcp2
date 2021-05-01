@@ -798,22 +798,22 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 
 // 2021, April
 // Updated by Candidate Number:2439D
-namespace {
-int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
-               const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
+// namespace {
+// int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+//                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
   
-  // if (!config.quiet){
-  //   printf(" ----------------------------------\n");
-  //   printf(" [Header encryption is turned OFF ]\n");
-  //   printf(" ----------------------------------\n");
-  // }
+//   // if (!config.quiet){
+//   //   printf(" ----------------------------------\n");
+//   //   printf(" [Header encryption is turned OFF ]\n");
+//   //   printf(" ----------------------------------\n");
+//   // }
 
-  //write to dest NGTCP2_HP_MASKLEN number of 0s
-  memset(dest,0,NGTCP2_HP_MASKLEN);
-  return 0;
+//   //write to dest NGTCP2_HP_MASKLEN number of 0s
+//   memset(dest,0,NGTCP2_HP_MASKLEN);
+//   return 0;
 
-}
-} // namespace
+// }
+// } // namespace
 
 namespace {
 int recv_crypto_data(ngtcp2_conn *conn, ngtcp2_crypto_level crypto_level,
