@@ -15,7 +15,7 @@ This is an attempt to offload packet reodering logic of QUIC to hardware.
 However, according to https://www.youtube.com/watch?v=31J8PoLW9iM, packet numbers of QUIC are encrypted.
 Hence, this QUIC implementation diverges from ngtcp2 QUIC implementation by turning off packet encryption.
 
-Here master branch of ngtcp2 is used (https://github.com/simonasmulevicius/ngtcp2/tree/draft-32).
+Here master branch of ngtcp2 is used (https://github.com/<Name><Surname>/ngtcp2/tree/draft-32).
 
 Branching strategy
 ------------------
@@ -90,7 +90,7 @@ Build from git
 
 .. code-block:: text
 
-   $ git clone --depth 1 -b OpenSSL_1_1_1k+quic https://github.com/simonasmulevicius/openssl
+   $ git clone --depth 1 -b OpenSSL_1_1_1k+quic https://github.com/<Name><Surname>/openssl
    $ cd openssl
    $ # For Linux
    $ ./config enable-tls1_3 --prefix=$PWD/build
@@ -104,7 +104,7 @@ Build from git
    $ make -j$(nproc) check
    $ make install
    $ cd ..
-   $ git clone https://github.com/simonasmulevicius/ngtcp2.git
+   $ git clone https://github.com/<Name><Surname>/ngtcp2.git
    $ cd ngtcp2
    $ autoreconf -i
    $ # For Mac users who have installed libev with MacPorts, append

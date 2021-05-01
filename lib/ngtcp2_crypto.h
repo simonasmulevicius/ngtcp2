@@ -100,4 +100,31 @@ typedef struct ngtcp2_crypto_cc {
 void ngtcp2_crypto_create_nonce(uint8_t *dest, const uint8_t *iv, size_t ivlen,
                                 int64_t pkt_num);
 
+
+
+
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_encrypt_unsecure_mock(uint8_t *dest,
+                                        const ngtcp2_crypto_aead *aead,
+                                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                        const uint8_t *plaintext,
+                                        size_t plaintextlen,
+                                        const uint8_t *nonce, size_t noncelen,
+                                        const uint8_t *ad, size_t adlen);
+
+
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_decrypt_unsecure_mock(uint8_t *dest,
+                                        const ngtcp2_crypto_aead *aead,
+                                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                                        const uint8_t *ciphertext,
+                                        size_t ciphertextlen,
+                                        const uint8_t *nonce, size_t noncelen,
+                                        const uint8_t *ad, size_t adlen);
+
+int ngtcp2_crypto_hp_mask_unsecure_mock(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
+                        const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                        const uint8_t *sample);
 #endif /* NGTCP2_CRYPTO_H */

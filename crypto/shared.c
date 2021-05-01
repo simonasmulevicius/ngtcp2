@@ -604,7 +604,7 @@ int ngtcp2_crypto_encrypt_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 int ngtcp2_crypto_encrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                              const ngtcp2_crypto_aead_ctx *aead_ctx,
                              const uint8_t *plaintext, size_t plaintextlen,
@@ -633,7 +633,7 @@ int ngtcp2_crypto_decrypt_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 int ngtcp2_crypto_decrypt_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                              const ngtcp2_crypto_aead_ctx *aead_ctx,
                              const uint8_t *ciphertext, size_t ciphertextlen,
@@ -658,7 +658,7 @@ int ngtcp2_crypto_hp_mask_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 }
 
 // 2021, April
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 int ngtcp2_crypto_hp_mask_unsecure_cb(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                              const ngtcp2_crypto_cipher_ctx *hp_ctx,
                              const uint8_t *sample) {

@@ -500,13 +500,15 @@ int remove_connection_id(ngtcp2_conn *conn, const ngtcp2_cid *cid,
 } // namespace
 
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-  // printf(" ---------------------------------------\n");
-  // printf(" [ Header encryption is turned    ON   ]\n");
-  // printf(" ---------------------------------------\n");
+  // if (!config.quiet){
+  //   printf(" ---------------------------------\n");
+  //   printf(" [Header encryption is turned ON ]\n");
+  //   printf(" ---------------------------------\n");
+  // }  
   
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
     return NGTCP2_ERR_CALLBACK_FAILURE;
@@ -521,13 +523,15 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 } // namespace
 
 // 2021, April
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 namespace {
 int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-  // printf(" ---------------------------------------\n");
-  // printf(" [ Header encryption is turned    OFF  ]\n");
-  // printf(" ---------------------------------------\n");
+  // if (!config.quiet){
+  //   printf(" ----------------------------------\n");
+  //   printf(" [Header encryption is turned OFF ]\n");
+  //   printf(" ----------------------------------\n");
+  // }
 
   //write to dest NGTCP2_HP_MASKLEN number of 0s
   memset(dest,0,NGTCP2_HP_MASKLEN);
@@ -704,7 +708,7 @@ int Client::init(int fd, const Address &local_addr, const Address &remote_addr,
           nullptr, // recv_version_negotiation
           ngtcp2_crypto_encrypt_unsecure_cb,
           ngtcp2_crypto_decrypt_unsecure_cb,
-          do_hp_mask_unsecure,
+          ngtcp2_crypto_hp_mask_unsecure_cb,
           ::recv_stream_data,
           acked_crypto_offset,
           ::acked_stream_data_offset,
@@ -2102,7 +2106,7 @@ void config_set_default(Config &config) {
 
 //
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 //
 namespace {
 void print_help() {
@@ -2285,13 +2289,13 @@ Options:
 
 //
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+// Updated by Candidate Number:2439D
 //
 int main(int argc, char **argv) {
   printf("------------------------------------------------------------------\n");
   printf(" This is experimental un-encrypted ngtcp2 version                 \n");
   printf("\n");
-  printf(" Co-author: Simonas Mulevicius, the University of Cambridge, 2021 \n");
+  printf(" Co-author: Candidate Number:2439D, the University of Cambridge, 2021 \n");
   printf("------------------------------------------------------------------\n");
   printf("\n");
     
@@ -2403,7 +2407,7 @@ int main(int argc, char **argv) {
     
     //
     // 2021, January
-    // Updated by Simonas Mulevicius, sm2354@cam.ac.uk
+    // Updated by Candidate Number:2439D
     //    
     case 'P':
       // No encryption (Plaintext mode)

@@ -350,29 +350,51 @@ int ngtcp2_crypto_encrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
-                                  const ngtcp2_crypto_aead *aead,
-                                  const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
-                                  const uint8_t *plaintext, 
-                                  size_t plaintextlen,
-                                  __attribute__((unused)) const uint8_t *nonce, 
-                                  __attribute__((unused)) size_t noncelen,
-                                  __attribute__((unused)) const uint8_t *ad, 
-                                  __attribute__((unused)) size_t adlen) {
-  size_t taglen;
+// Updated by Candidate Number:2439D
+// int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
+//                                   const ngtcp2_crypto_aead *aead,
+//                                   const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
+//                                   const uint8_t *plaintext, 
+//                                   size_t plaintextlen,
+//                                   __attribute__((unused)) const uint8_t *nonce, 
+//                                   __attribute__((unused)) size_t noncelen,
+//                                   __attribute__((unused)) const uint8_t *ad, 
+//                                   __attribute__((unused)) size_t adlen) {
+//   size_t taglen;
   
-  // printf(" ---------------------------------------\n");
-  // printf(" [ Payload encryption is turned   OFF  ]\n");
-  // printf(" ---------------------------------------\n");
+//   // printf(" ---------------------------------------\n");
+//   // printf(" [ Payload encryption is turned   OFF  ]\n");
+//   // printf(" ---------------------------------------\n");
 
-  memcpy(dest, plaintext, plaintextlen);
+//   memcpy(dest, plaintext, plaintextlen);
 
-  /// add padding of 0s
-  taglen = aead->max_overhead;  
-  memset(dest+plaintextlen,0,taglen);
+//   /// add padding of 0s
+//   taglen = aead->max_overhead;  
+//   memset(dest+plaintextlen,0,taglen);
+//   return 0;
+// }
+
+// 2021, April
+// Taken from unit tests
+int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *plaintext, size_t plaintextlen,
+                        const uint8_t *nonce, size_t noncelen,
+                        const uint8_t *ad, size_t adlen) {
+  (void)dest;
+  (void)aead;
+  (void)aead_ctx;
+  (void)plaintext;
+  (void)plaintextlen;
+  (void)nonce;
+  (void)noncelen;
+  (void)ad;
+  (void)adlen;
+  memset(dest + plaintextlen, 0, NGTCP2_FAKE_AEAD_OVERHEAD);
   return 0;
 }
+
+
 
 int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
                           const ngtcp2_crypto_aead_ctx *aead_ctx,
@@ -394,25 +416,47 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
-                                  const ngtcp2_crypto_aead *aead,
-                                  __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
-                                  const uint8_t *ciphertext, 
-                                  size_t ciphertextlen,
-                                  __attribute__((unused)) const uint8_t *nonce, 
-                                  __attribute__((unused)) size_t noncelen,
-                                  __attribute__((unused)) const uint8_t *ad, 
-                                  __attribute__((unused)) size_t adlen) {
-    size_t taglen = aead->max_overhead;  
-    // printf(" ---------------------------------------\n");
-    // printf(" [ Payload encryption is turned   OFF  ]\n");
-    // printf(" ---------------------------------------\n");
-    // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
-    memcpy(dest, ciphertext, ciphertextlen-taglen);
+// Updated by Candidate Number:2439D
+// int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+//                                   const ngtcp2_crypto_aead *aead,
+//                                   __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+//                                   const uint8_t *ciphertext, 
+//                                   size_t ciphertextlen,
+//                                   __attribute__((unused)) const uint8_t *nonce, 
+//                                   __attribute__((unused)) size_t noncelen,
+//                                   __attribute__((unused)) const uint8_t *ad, 
+//                                   __attribute__((unused)) size_t adlen) {
+//     size_t taglen = aead->max_overhead;  
+//     // printf(" ---------------------------------------\n");
+//     // printf(" [ Payload encryption is turned   OFF  ]\n");
+//     // printf(" ---------------------------------------\n");
+//     // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
+//     memcpy(dest, ciphertext, ciphertextlen-taglen);
 
-    return 0;
+//     return 0;
+// }
+
+// 2021, April
+// Taken from unit tests
+int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, const ngtcp2_crypto_aead *aead,
+                        const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *ciphertext, size_t ciphertextlen,
+                        const uint8_t *nonce, size_t noncelen,
+                        const uint8_t *ad, size_t adlen) {
+  (void)dest;
+  (void)aead;
+  (void)aead_ctx;
+  (void)ciphertext;
+  (void)nonce;
+  (void)noncelen;
+  (void)ad;
+  (void)adlen;
+  assert(ciphertextlen >= NGTCP2_FAKE_AEAD_OVERHEAD);
+  memmove(dest, ciphertext, ciphertextlen - NGTCP2_FAKE_AEAD_OVERHEAD);
+  return 0;
 }
+
+
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                           const ngtcp2_crypto_cipher_ctx *hp_ctx,
@@ -452,14 +496,25 @@ int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 }
 
 // 2021, April
-// Updated by Simonas Mulevicius, sm2354@cam.ac.uk
-int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
-                          __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
-                          __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
-                          __attribute__((unused)) const uint8_t *sample) {
+// Updated by Candidate Number:2439D
+// int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
+//                           __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
+//                           __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
+//                           __attribute__((unused)) const uint8_t *sample) {
 
-  //set fixed length mask of zeroes
-  memset(dest,0,5);
+//   //set fixed length mask of zeroes
+//   memset(dest,0,5);
+//   return 0;
+// }
+
+// 2021, April
+// Taken from unit tests
+// Updated by Candidate Number:2439D
+int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
+                        __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                        __attribute__((unused)) const uint8_t *sample) {
+  memcpy(dest, NGTCP2_FAKE_HP_MASK, sizeof(NGTCP2_FAKE_HP_MASK) - 1);
   return 0;
 }
 
