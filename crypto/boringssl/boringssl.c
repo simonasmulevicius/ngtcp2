@@ -63,6 +63,20 @@ static ngtcp2_crypto_boringssl_cipher crypto_cipher_chacha20 = {
     NGTCP2_CRYPTO_BORINGSSL_CIPHER_TYPE_CHACHA20,
 };
 
+/*
+ * 2021, April
+ * Updated by Candidate Number:2439D
+ *
+ * NGTCP2_FAKE_AEAD_OVERHEAD is AEAD overhead used in unit tests.
+ * Because we use the same encryption/decryption function for both
+ * handshake and post handshake packets, we have to use AEAD overhead
+ * used in handshake packets.
+ */
+#define NGTCP2_FAKE_AEAD_OVERHEAD 16
+/* NGTCP2_FAKE_HP_MASK is a header protection mask used in unit
+   tests. */
+#define NGTCP2_FAKE_HP_MASK "\x00\x00\x00\x00\x00"
+
 ngtcp2_crypto_ctx *ngtcp2_crypto_ctx_initial(ngtcp2_crypto_ctx *ctx) {
   ngtcp2_crypto_aead_init(&ctx->aead, (void *)EVP_aead_aes_128_gcm());
   ctx->md.native_handle = (void *)EVP_sha256();
@@ -415,8 +429,7 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
   return 0;
 }
 
-// 2021, January
-// Updated by Candidate Number:2439D
+
 // int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
 //                                   const ngtcp2_crypto_aead *aead,
 //                                   __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
@@ -436,21 +449,21 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 //     return 0;
 // }
 
+// 2021, January
+// Updated by Candidate Number:2439D
 // 2021, April
 // Taken from unit tests
-int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-                        const ngtcp2_crypto_aead_ctx *aead_ctx,
-                        const uint8_t *ciphertext, size_t ciphertextlen,
-                        const uint8_t *nonce, size_t noncelen,
-                        const uint8_t *ad, size_t adlen) {
-  (void)dest;
-  (void)aead;
-  (void)aead_ctx;
-  (void)ciphertext;
-  (void)nonce;
-  (void)noncelen;
-  (void)ad;
-  (void)adlen;
+// Developed independently and updated by Candidate Number:2439D
+int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_aead *aead,
+                        __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *ciphertext, 
+                        size_t ciphertextlen,
+                        __attribute__((unused)) const uint8_t *nonce, 
+                        __attribute__((unused)) size_t noncelen,
+                        __attribute__((unused)) const uint8_t *ad, 
+                        __attribute__((unused)) size_t adlen) {
+  
   assert(ciphertextlen >= NGTCP2_FAKE_AEAD_OVERHEAD);
   memmove(dest, ciphertext, ciphertextlen - NGTCP2_FAKE_AEAD_OVERHEAD);
   return 0;
