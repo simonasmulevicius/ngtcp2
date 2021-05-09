@@ -281,28 +281,55 @@ int ngtcp2_crypto_encrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Candidate Number:2439D
-int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
-                                  const ngtcp2_crypto_aead *aead,
-                                  const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
-                                  const uint8_t *plaintext, 
-                                  size_t plaintextlen,
-                                  __attribute__((unused)) const uint8_t *nonce, 
-                                  __attribute__((unused)) size_t noncelen,
-                                  __attribute__((unused)) const uint8_t *ad, 
-                                  __attribute__((unused)) size_t adlen) {
-  size_t taglen;
+// Added by Candidate Number:2439D
+// int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
+//                                   const ngtcp2_crypto_aead *aead,
+//                                   const __attribute__((unused)) ngtcp2_crypto_aead_ctx *aead_ctx,
+//                                   const uint8_t *plaintext, 
+//                                   size_t plaintextlen,
+//                                   __attribute__((unused)) const uint8_t *nonce, 
+//                                   __attribute__((unused)) size_t noncelen,
+//                                   __attribute__((unused)) const uint8_t *ad, 
+//                                   __attribute__((unused)) size_t adlen) {
+//   size_t taglen;
   
+//   // printf(" ---------------------------------------\n");
+//   // printf(" [ Payload encryption is turned   OFF  ]\n");
+//   // printf(" ---------------------------------------\n");
+
+//   memcpy(dest, plaintext, plaintextlen);
+
+  
+//   /// add padding of 0s
+//   taglen = aead->max_overhead;  
+//   memset(dest+plaintextlen,0,taglen);
+//   return 0;
+// }
+
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_encrypt_unsecure(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_aead *aead,
+                        __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *plaintext, 
+                        size_t plaintextlen,
+                        __attribute__((unused)) const uint8_t *nonce, 
+                        __attribute__((unused)) size_t noncelen,
+                        __attribute__((unused)) const uint8_t *ad, 
+                        __attribute__((unused)) size_t adlen) {
   // printf(" ---------------------------------------\n");
   // printf(" [ Payload encryption is turned   OFF  ]\n");
   // printf(" ---------------------------------------\n");
 
-  memcpy(dest, plaintext, plaintextlen);
+  if (plaintextlen > 0 && plaintext != dest) {
+    // It is safe to copy because a precondition for |dest| is 
+    // that it should have enough space for |plaintextlen|
+    memmove(dest, plaintext, plaintextlen);
+  }
+  // Cyphertext has to be 16 bytes longer than the |plaintext|
+  // So simply pad copied |plaintext| with zeroes
+  memset(dest + plaintextlen, 0, 16);
 
-  
-  /// add padding of 0s
-  taglen = aead->max_overhead;  
-  memset(dest+plaintextlen,0,taglen);
   return 0;
 }
 
@@ -333,24 +360,48 @@ int ngtcp2_crypto_decrypt(uint8_t *dest, const ngtcp2_crypto_aead *aead,
 }
 
 // 2021, January
-// Updated by Candidate Number:2439D
-int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
-                                  const ngtcp2_crypto_aead *aead,
-                                  __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
-                                  const uint8_t *ciphertext, 
-                                  size_t ciphertextlen,
-                                  __attribute__((unused)) const uint8_t *nonce, 
-                                  __attribute__((unused)) size_t noncelen,
-                                  __attribute__((unused)) const uint8_t *ad, 
-                                  __attribute__((unused)) size_t adlen) {
-    size_t taglen = aead->max_overhead;  
-    // printf(" ---------------------------------------\n");
-    // printf(" [ Payload encryption is turned   OFF  ]\n");
-    // printf(" ---------------------------------------\n");
-    // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
-    memcpy(dest, ciphertext, ciphertextlen-taglen);
+// Added by Candidate Number:2439D
+// int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+//                                   const ngtcp2_crypto_aead *aead,
+//                                   __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+//                                   const uint8_t *ciphertext, 
+//                                   size_t ciphertextlen,
+//                                   __attribute__((unused)) const uint8_t *nonce, 
+//                                   __attribute__((unused)) size_t noncelen,
+//                                   __attribute__((unused)) const uint8_t *ad, 
+//                                   __attribute__((unused)) size_t adlen) {
+//     size_t taglen = aead->max_overhead;  
+//     // printf(" ---------------------------------------\n");
+//     // printf(" [ Payload encryption is turned   OFF  ]\n");
+//     // printf(" ---------------------------------------\n");
+//     // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
+//     memcpy(dest, ciphertext, ciphertextlen-taglen);
 
-    return 0;
+//     return 0;
+// }
+
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_decrypt_unsecure(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_aead *aead,
+                        __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *ciphertext, 
+                        size_t ciphertextlen,
+                        __attribute__((unused)) const uint8_t *nonce, 
+                        __attribute__((unused)) size_t noncelen,
+                        __attribute__((unused)) const uint8_t *ad, 
+                        __attribute__((unused)) size_t adlen) {
+
+  assert(16 <= ciphertextlen);
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Payload encryption is turned   OFF  ]\n");
+  // printf(" ---------------------------------------\n");
+
+  // Ignore zeroes at the end of |ciphertext|
+  if (ciphertext != dest) {
+    memmove(dest, ciphertext, ciphertextlen - 16);
+  }
+  return 0;
 }
 
 int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
@@ -400,17 +451,20 @@ int ngtcp2_crypto_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
   return 0;
 }
 
-  // 2021, April
-  // Updated by Candidate Number:2439D
-  int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
-                            __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
-                            __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
-                            __attribute__((unused)) const uint8_t *sample) {
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_hp_mask_unsecure(uint8_t *dest, 
+                          __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
+                          __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                          __attribute__((unused)) const uint8_t *sample) {
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Header encryption is turned    OFF  ]\n");
+  // printf(" ---------------------------------------\n");
 
-    //set fixed length mask of zeroes
-    memset(dest,0,5);
-    return 0;
-  }
+  //set fixed length mask of zeroes
+  memset(dest,0,NGTCP2_HP_MASKLEN);
+  return 0;
+}
 
 ngtcp2_crypto_level ngtcp2_crypto_gnutls_from_gnutls_record_encryption_level(
     gnutls_record_encryption_level_t gtls_level) {

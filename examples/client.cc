@@ -504,11 +504,11 @@ int remove_connection_id(ngtcp2_conn *conn, const ngtcp2_cid *cid,
 namespace {
 int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {
-  // if (!config.quiet){
-  //   printf(" ---------------------------------\n");
-  //   printf(" [Header encryption is turned ON ]\n");
-  //   printf(" ---------------------------------\n");
-  // }  
+  if (!config.quiet){
+    printf(" ---------------------------------\n");
+    printf(" [Header encryption is turned ON ]\n");
+    printf(" ---------------------------------\n");
+  }  
   
   if (ngtcp2_crypto_hp_mask(dest, hp, hp_ctx, sample) != 0) {
     return NGTCP2_ERR_CALLBACK_FAILURE;
@@ -523,7 +523,7 @@ int do_hp_mask(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 } // namespace
 
 // 2021, April
-// Updated by Candidate Number:2439D
+// Added by Candidate Number:2439D
 // namespace {
 // int do_hp_mask_unsecure(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
 //                const ngtcp2_crypto_cipher_ctx *hp_ctx, const uint8_t *sample) {

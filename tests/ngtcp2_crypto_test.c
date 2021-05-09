@@ -406,8 +406,6 @@ void test_openssl_back_to_back_null_crypto(void) {
     CU_ASSERT(ngtcp2_crypto_encrypt_unsecure_mock(intermediate_text, NULL, NULL, 
         senders_plaintext, senders_plaintext_len, NULL, 0, NULL, 0) == 0);
 
-    
-
     CU_ASSERT(ngtcp2_crypto_decrypt_unsecure_mock(receivers_plaintext, NULL, NULL, 
         intermediate_text, intermediate_text_len, NULL, 0, NULL, 0) == 0);
     

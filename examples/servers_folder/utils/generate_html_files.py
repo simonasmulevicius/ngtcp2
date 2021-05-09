@@ -43,12 +43,12 @@ def generate_html(SIZE_IN_BYTES):
     f.close()
 
 # generate_html(       100)
-# generate_html(      1000) #1kB
-# generate_html(     10000) #10kB
-# generate_html(    100000) #100kB
-# generate_html(   1000000) #1MB
-# generate_html(  10000000) #10MB
-# generate_html( 100000000) #100MB
+generate_html(      1000) #1kB
+generate_html(     10000) #10kB
+generate_html(    100000) #100kB
+generate_html(   1000000) #1MB
+generate_html(  10000000) #10MB
+generate_html( 100000000) #100MB
 generate_html(1000000000) #1GB
 
 print("DONE")

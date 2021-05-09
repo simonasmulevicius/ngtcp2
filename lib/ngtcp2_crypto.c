@@ -31,10 +31,15 @@
 #include "ngtcp2_conv.h"
 #include "ngtcp2_conn.h"
 
-#define NGTCP2_FAKE_AEAD_OVERHEAD 16
-/* NGTCP2_FAKE_HP_MASK is a header protection mask used in unit
-   tests. */
-#define NGTCP2_FAKE_HP_MASK "\x00\x00\x00\x00\x00"
+// 2021, April
+// Added by Candidate Number:2439D
+/**
+ * (Taken from ngtcp2.h)
+ * 
+ * `NGTCP2_HP_MASKLEN` is the length of header protection mask.
+ */
+#define NGTCP2_HP_MASKLEN 5
+
 
 int ngtcp2_crypto_km_new(ngtcp2_crypto_km **pckm, const uint8_t *secret,
                          size_t secretlen,
@@ -782,81 +787,75 @@ int ngtcp2_decode_transport_params(ngtcp2_transport_params *params,
 
 //------------------------------------------------
 // START>>
+
 // 2021, April
-// Updated by Candidate Number:2439D
-int ngtcp2_crypto_encrypt_unsecure_mock(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-                        const ngtcp2_crypto_aead_ctx *aead_ctx,
-                        const uint8_t *plaintext, size_t plaintextlen,
-                        const uint8_t *nonce, size_t noncelen,
-                        const uint8_t *ad, size_t adlen){
-  // // OLD implementation
-  // size_t taglen;
-  // memcpy(dest, plaintext, plaintextlen);
-  // taglen = aead->max_overhead; 
-  // /// add padding of 0s 
-  // memset(dest+plaintextlen,0,taglen);
-  // return 0;
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_encrypt_unsecure_mock(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_aead *aead,
+                        __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *plaintext, 
+                        size_t plaintextlen,
+                        __attribute__((unused)) const uint8_t *nonce, 
+                        __attribute__((unused)) size_t noncelen,
+                        __attribute__((unused)) const uint8_t *ad, 
+                        __attribute__((unused)) size_t adlen) {
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Payload encryption is turned   OFF  ]\n");
+  // printf(" ---------------------------------------\n");
 
-  (void)dest;
-  (void)aead;
-  (void)aead_ctx;
-  (void)plaintext;
-  (void)plaintextlen;
-  (void)nonce;
-  (void)noncelen;
-  (void)ad;
-  (void)adlen;
-
-  if (plaintextlen && plaintext != dest) {
-    memcpy(dest, plaintext, plaintextlen);
+  if (plaintextlen > 0 && plaintext != dest) {
+    // It is safe to copy because a precondition for |dest| is 
+    // that it should have enough space for |plaintextlen|
+    memmove(dest, plaintext, plaintextlen);
   }
-  memset(dest + plaintextlen, 0, NGTCP2_FAKE_AEAD_OVERHEAD);
+  // Cyphertext has to be 16 bytes longer than the |plaintext|
+  // So simply pad copied |plaintext| with zeroes
+  memset(dest + plaintextlen, 0, 16);
 
   return 0;
 }
 
-// 2021, April
-// Updated by Candidate Number:2439D
-int ngtcp2_crypto_decrypt_unsecure_mock(uint8_t *dest, const ngtcp2_crypto_aead *aead,
-                        const ngtcp2_crypto_aead_ctx *aead_ctx,
-                        const uint8_t *ciphertext, size_t ciphertextlen,
-                        const uint8_t *nonce, size_t noncelen,
-                        const uint8_t *ad, size_t adlen){
-  // // OLD implementation
-  // size_t taglen = aead->max_overhead;  
-  // // Ignore (ciphertextlen-taglen) number of zeroes at the end of ciphertext
-  // assert(ciphertextlen-taglen >= 0);
-  // memcpy(dest, ciphertext, ciphertextlen-taglen);
-  // return 0;
 
-  (void)dest;
-  (void)aead;
-  (void)aead_ctx;
-  (void)ciphertext;
-  (void)nonce;
-  (void)noncelen;
-  (void)ad;
-  (void)adlen;
-  assert(ciphertextlen >= NGTCP2_FAKE_AEAD_OVERHEAD);
-  memmove(dest, ciphertext, ciphertextlen - NGTCP2_FAKE_AEAD_OVERHEAD);
+
+
+
+
+// 2021, April
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_decrypt_unsecure_mock(uint8_t *dest, 
+                        __attribute__((unused)) const ngtcp2_crypto_aead *aead,
+                        __attribute__((unused)) const ngtcp2_crypto_aead_ctx *aead_ctx,
+                        const uint8_t *ciphertext, 
+                        size_t ciphertextlen,
+                        __attribute__((unused)) const uint8_t *nonce, 
+                        __attribute__((unused)) size_t noncelen,
+                        __attribute__((unused)) const uint8_t *ad, 
+                        __attribute__((unused)) size_t adlen) {
+
+  assert(16 <= ciphertextlen);
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Payload encryption is turned   OFF  ]\n");
+  // printf(" ---------------------------------------\n");
+
+  // Ignore zeroes at the end of |ciphertext|
+  if (ciphertext != dest) {
+    memmove(dest, ciphertext, ciphertextlen - 16);
+  }
   return 0;
 }
 
-
 // 2021, April
-// Updated by Candidate Number:2439D
-int ngtcp2_crypto_hp_mask_unsecure_mock(uint8_t *dest, const ngtcp2_crypto_cipher *hp,
-                        const ngtcp2_crypto_cipher_ctx *hp_ctx,
-                        const uint8_t *sample)  {
-  // //OLD IMPLEMENTATION
+// Added by Candidate Number:2439D
+int ngtcp2_crypto_hp_mask_unsecure_mock(uint8_t *dest, 
+                          __attribute__((unused)) const ngtcp2_crypto_cipher *hp,
+                          __attribute__((unused)) const ngtcp2_crypto_cipher_ctx *hp_ctx,
+                          __attribute__((unused)) const uint8_t *sample) {
+  // printf(" ---------------------------------------\n");
+  // printf(" [ Header encryption is turned    OFF  ]\n");
+  // printf(" ---------------------------------------\n");
+
   //set fixed length mask of zeroes
-  // memset(dest,0,5);
-  // return 0;
-
-  (void)hp;
-  (void)hp_ctx;
-  (void)sample;
-  memcpy(dest, NGTCP2_FAKE_HP_MASK, sizeof(NGTCP2_FAKE_HP_MASK) - 1);
+  memset(dest,0,NGTCP2_HP_MASKLEN);
   return 0;
 }
 

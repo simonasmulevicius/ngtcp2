@@ -165,7 +165,7 @@ struct Config {
   ngtcp2_duration initial_rtt;
 
   // 2021, January
-  // Updated by Candidate Number:2439D
+  // Added by Candidate Number:2439D
 
   // noencryption is true if developers do not want to encrypt payload and headers
   bool noencryption;
